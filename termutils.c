@@ -54,7 +54,7 @@ void restore() {
         free(windows[i]->content[j]);
       free(windows[i]->content);
     }
-    free(windows[i]->name);
+    // free(windows[i]->name);
     free(windows[i]);
   }
   refresh();
