@@ -4,7 +4,6 @@
 #define TERMUTILS_H
 
 // COLORS
-#include <sys/types.h>
 #define FG_BLACK "\033[30m"
 #define FG_RED "\033[31m"
 #define FG_GREEN "\033[32m"
@@ -56,20 +55,8 @@ struct mouse {
 struct cell {
   wchar_t sym;
   char *color;
-};
-
-struct window {
-  int id;
-  char *name;
   int x;
   int y;
-  int width;
-  int height;
-  int border;
-  struct cell **content;
-  void (*updater)(struct window *);
-
-  int dragable, drag, drag_ofset;
 };
 
 // EXTERNS
@@ -94,8 +81,32 @@ int getch(int timeout);
 void enable_mouse();
 void disable_mouse();
 
-// windows
+// WINDOWS
+
+// structs
+struct window {
+  int id;
+  char *name;
+
+  int x;
+  int y;
+  int width;
+  int height;
+
+  int border, filling;
+
+  struct cell **content;
+  int content_length, content_offset_x, content_offset_y;
+
+  void (*updater)(struct window *);
+
+  int dragable, drag, drag_ofset;
+};
+
+// funcs
 struct window *new_window(void (*updater)(struct window *));
+void wposwchar(struct window *win, int y, int x, wchar_t c);
+void wclear(struct window *win);
 void render_windows();
 
 #endif // !TERMUTILS_H

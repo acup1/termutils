@@ -11,7 +11,7 @@
 #include <wchar.h>
 
 static struct termios original, changed;
-static int winmode = 0;
+// static int winmode = 0;
 static int wincount = 0;
 static struct window **windows;
 
@@ -50,9 +50,8 @@ void restore() {
   tcsetattr(STDIN_FILENO, TCSANOW, &original);
   for (int i = 0; i < wincount; i++) {
     if (windows[i]->content) {
-      for (int j = 0; j < windows[i]->height; j++) {
+      for (int j = 0; j < windows[i]->content_length; j++)
         free(windows[i]->content[j]);
-      }
       free(windows[i]->content);
     }
     free(windows[i]->name);
@@ -234,15 +233,50 @@ struct window *new_window(void (*updater)(struct window *)) {
   win->id = wincount;
   win->updater = updater;
   win->border = 0;
-  win->content = malloc(sizeof(struct cell *) * ROWS * 2);
-  for (int i = 0; i < ROWS * 2; i++)
-    win->content[i] = malloc(sizeof(struct cell) * COLS * 2);
+  win->filling = 1;
+  win->content_length = 0;
+  win->content_offset_x = 0;
+  win->content_offset_y = 0;
+  win->dragable = 0;
+
   if (wincount > 0)
     windows = realloc(windows, sizeof(struct window *) * (++wincount));
   else
     windows = malloc(sizeof(struct window *) * (++wincount));
   *(windows + (wincount - 1)) = win;
   return win;
+}
+
+void wposwchar(struct window *win, int y, int x, wchar_t c) {
+  int draw = 1;
+  for (int i = 0; i < win->content_length && draw; i++)
+    if (win->content[i]->sym == c && win->content[i]->x == x &&
+        win->content[i]->y == y)
+      draw = 0;
+    else if (win->content[i]->sym != c && win->content[i]->x == x &&
+             win->content[i]->y == y) {
+      draw = 0;
+      win->content[i]->sym = c;
+    }
+  if (draw) {
+    struct cell *cell = malloc(sizeof(struct cell));
+    cell->y = y;
+    cell->x = x;
+    cell->sym = c;
+    if (win->content_length > 0)
+      win->content = realloc(win->content,
+                             sizeof(struct cell *) * (++win->content_length));
+    else
+      win->content = malloc(sizeof(struct cell *) * (++win->content_length));
+    win->content[win->content_length - 1] = cell;
+  }
+}
+
+void wclear(struct window *win) {
+  for (int i = 0; i < win->content_length; i++)
+    free(win->content[i]);
+  win->content_length = 0;
+  free(win->content);
 }
 
 void render_windows() {
@@ -272,16 +306,17 @@ void render_windows() {
       win->x = COLS - win->width;
     if (win->y + win->height > ROWS)
       win->y = ROWS - win->height;
-    for (int i = 0; i < win->height - 2; i++)
-      for (int j = 0; j < win->width - 2; j++)
-        if (win->content)
-          if (win->content + i)
-            if (*(win->content + i) + j)
-              if ((&win->content[i][j])->sym)
-                poswchar(win->y + i + 1, win->x + j + 1,
-                         (&win->content[i][j])->sym);
-              else
-                poswchar(win->y + i + 1, win->x + j + 1, L' ');
+
+    if (win->filling)
+      for (int i = 0; i < win->height - 2; i++)
+        for (int j = 0; j < win->width - 2; j++)
+          poschar(win->y + i + 1, win->x + j + 1, ' ');
+
+    for (int i = 0; i < win->content_length; i++)
+      if ((win->content[i]->y < win->height - 2) &&
+          (win->content[i]->x < win->width - 2))
+        poswchar(win->y + win->content[i]->y + 1,
+                 win->x + win->content[i]->x + 1, win->content[i]->sym);
 
     if (win->border != -1)
       box(win->y, win->x, win->height, win->width, win->border);
