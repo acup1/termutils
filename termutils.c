@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <wchar.h>
 
@@ -128,6 +129,7 @@ void box(int y, int x, int h, int w, int style) {
 }
 
 int getch(int timeout) {
+  clock_t start = clock();
   int ret = KEY_FAIL;
   struct pollfd fds[1];
   fds[0].fd = STDIN_FILENO;
@@ -211,6 +213,8 @@ int getch(int timeout) {
       break;
     }
   }
+  while ((double)(clock() - start) / CLOCKS_PER_SEC / 1000 < timeout)
+    ;
   return ret;
 }
 
