@@ -1,13 +1,8 @@
 { pkgs ? import <nixpkgs> { } }:
 
 pkgs.mkShell {
-  buildInputs = with pkgs; [
-    gcc
-    glibc
-    clang
-    clang-tools
-    bear
-  ];
+  name = "c-shell";
+  buildInputs = with pkgs; [ gcc glibc clang clang-tools bear ];
 
   shellHook = ''
     export EDITOR="nvim"
