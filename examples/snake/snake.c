@@ -7,17 +7,16 @@
 typedef struct {
   int snake_length;
   int direction;
-  struct window **tail;
+  window **tail;
 } snake;
 
 void segment_updater(struct window *win) {}
 
 void add_segment(snake *s) {
-  s->tail = realloc(s->tail, sizeof(struct window *) * (++s->snake_length));
+  s->tail = realloc(s->tail, sizeof(window *) * (++s->snake_length));
   s->tail[s->snake_length - 1] = new_window(segment_updater);
   s->tail[s->snake_length - 1]->height = SEGMENT_HEIGHT;
   s->tail[s->snake_length - 1]->width = SEGMENT_WIDTH;
-  s->tail[s->snake_length - 1]->name = NULL;
   if (s->snake_length - 1) {
     wclear(s->tail[s->snake_length - 2]);
     s->tail[s->snake_length - 2]->border = 0;
@@ -49,6 +48,7 @@ void add_segment(snake *s) {
   wposwchar(s->tail[s->snake_length - 1], 0, 2, L'\'');
   wposwchar(s->tail[s->snake_length - 1], 0, 1, L'~');
   s->tail[s->snake_length - 1]->border = 1;
+  s->tail[s->snake_length - 1]->filling = 0;
 }
 
 void snake_step(snake *s) {
@@ -105,19 +105,27 @@ int main() {
   refresh();
 
   char c;
-  while ((c = getch(200)) != 'q') {
+  int frame;
+  while (c != 'q') {
+    char c1 = getch(2);
+    c = c1 != 0 ? c1 : c;
     s->direction = c == 'd' && s->direction != 2   ? 0
                    : c == 'w' && s->direction != 3 ? 1
                    : c == 'a' && s->direction != 0 ? 2
                    : c == 's' && s->direction != 1 ? 3
                                                    : s->direction;
-    if (c == 'e')
-      add_segment(s);
-    else
-      snake_step(s);
-    clear();
-    render_windows();
-    refresh();
+    if (frame % 50 == 0) {
+      if (c == 'e')
+        add_segment(s);
+      else
+        snake_step(s);
+      clear();
+      render_windows();
+      refresh();
+    }
+
+    frame++;
   }
+  restore();
   return 0;
 }

@@ -14,7 +14,7 @@
 static struct termios original, changed;
 // static int winmode = 0;
 static int wincount = 0;
-static window **windows;
+window **windows;
 
 int ROWS, COLS;
 struct mouse MOUSE;

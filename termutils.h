@@ -97,6 +97,8 @@ struct window {
   int width;
   int height;
 
+  int layer;
+
   int border, filling;
 
   struct cell **content;
@@ -111,9 +113,9 @@ struct window {
 typedef struct window window;
 
 // funcs
-struct window *new_window(void (*updater)(struct window *));
-void wposwchar(struct window *win, int y, int x, wchar_t c);
-void wclear(struct window *win);
+struct window *new_window(void (*updater)(window *));
+void wposwchar(window *win, int y, int x, wchar_t c);
+void wclear(window *win);
 void render_windows();
 
 #endif // !TERMUTILS_H
