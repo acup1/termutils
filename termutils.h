@@ -59,9 +59,13 @@ struct cell {
   int y;
 };
 
+// TYPEDEF
+typedef struct mouse mouse;
+typedef struct cell cell;
+
 // EXTERNS
 extern int ROWS, COLS;
-extern struct mouse MOUSE;
+extern mouse MOUSE;
 
 // FUNCS
 void init();
@@ -102,6 +106,9 @@ struct window {
 
   int dragable, drag, drag_ofset;
 };
+
+// typedef
+typedef struct window window;
 
 // funcs
 struct window *new_window(void (*updater)(struct window *));

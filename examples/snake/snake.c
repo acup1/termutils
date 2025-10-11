@@ -99,20 +99,18 @@ int main() {
   s->tail[0]->x = 0;
   s->tail[0]->y = 0;
   s->direction = 0;
-  add_segment(s);
-  add_segment(s);
-  add_segment(s);
-  add_segment(s);
+  for (int i = 0; i < 3; i++)
+    add_segment(s);
   render_windows();
   refresh();
 
   char c;
   while ((c = getch(200)) != 'q') {
-    s->direction = c == 'd'   ? 0
-                   : c == 'w' ? 1
-                   : c == 'a' ? 2
-                   : c == 's' ? 3
-                              : s->direction;
+    s->direction = c == 'd' && s->direction != 2   ? 0
+                   : c == 'w' && s->direction != 3 ? 1
+                   : c == 'a' && s->direction != 0 ? 2
+                   : c == 's' && s->direction != 1 ? 3
+                                                   : s->direction;
     if (c == 'e')
       add_segment(s);
     else

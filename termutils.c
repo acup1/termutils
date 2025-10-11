@@ -14,7 +14,7 @@
 static struct termios original, changed;
 // static int winmode = 0;
 static int wincount = 0;
-static struct window **windows;
+static window **windows;
 
 int ROWS, COLS;
 struct mouse MOUSE;
@@ -231,10 +231,11 @@ void disable_mouse() {
   fflush(stdout);
 }
 
-struct window *new_window(void (*updater)(struct window *)) {
+window *new_window(void (*updater)(window *)) {
   getsize(&ROWS, &COLS);
-  struct window *win = malloc(sizeof(struct window));
+  window *win = malloc(sizeof(window));
   win->id = wincount;
+  win->name = NULL;
   win->updater = updater;
   win->border = 0;
   win->filling = 1;
@@ -244,14 +245,14 @@ struct window *new_window(void (*updater)(struct window *)) {
   win->dragable = 0;
 
   if (wincount > 0)
-    windows = realloc(windows, sizeof(struct window *) * (++wincount));
+    windows = realloc(windows, sizeof(window *) * (++wincount));
   else
-    windows = malloc(sizeof(struct window *) * (++wincount));
+    windows = malloc(sizeof(window *) * (++wincount));
   *(windows + (wincount - 1)) = win;
   return win;
 }
 
-void wposwchar(struct window *win, int y, int x, wchar_t c) {
+void wposwchar(window *win, int y, int x, wchar_t c) {
   int draw = 1;
   for (int i = 0; i < win->content_length && draw; i++)
     if (win->content[i]->sym == c && win->content[i]->x == x &&
@@ -263,20 +264,20 @@ void wposwchar(struct window *win, int y, int x, wchar_t c) {
       win->content[i]->sym = c;
     }
   if (draw) {
-    struct cell *cell = malloc(sizeof(struct cell));
-    cell->y = y;
-    cell->x = x;
-    cell->sym = c;
+    cell *current_cell = malloc(sizeof(cell));
+    current_cell->y = y;
+    current_cell->x = x;
+    current_cell->sym = c;
     if (win->content_length > 0)
-      win->content = realloc(win->content,
-                             sizeof(struct cell *) * (++win->content_length));
+      win->content =
+          realloc(win->content, sizeof(cell *) * (++win->content_length));
     else
-      win->content = malloc(sizeof(struct cell *) * (++win->content_length));
-    win->content[win->content_length - 1] = cell;
+      win->content = malloc(sizeof(cell *) * (++win->content_length));
+    win->content[win->content_length - 1] = current_cell;
   }
 }
 
-void wclear(struct window *win) {
+void wclear(window *win) {
   for (int i = 0; i < win->content_length; i++)
     free(win->content[i]);
   win->content_length = 0;
@@ -285,7 +286,7 @@ void wclear(struct window *win) {
 
 void render_windows() {
   for (int i = 0; i < wincount; i++) {
-    struct window *win = windows[i];
+    window *win = windows[i];
     win->updater(win);
 
     if (win->dragable) {
