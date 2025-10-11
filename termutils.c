@@ -213,7 +213,7 @@ int getch(int timeout) {
       break;
     }
   }
-  while ((double)(clock() - start) / CLOCKS_PER_SEC / 1000 < timeout)
+  while ((double)((clock() - start) * 1000) / CLOCKS_PER_SEC < timeout)
     ;
   return ret;
 }
