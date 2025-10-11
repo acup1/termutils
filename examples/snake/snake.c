@@ -17,6 +17,7 @@ void add_segment(snake *s) {
   s->tail[s->snake_length - 1] = new_window(segment_updater);
   s->tail[s->snake_length - 1]->height = SEGMENT_HEIGHT;
   s->tail[s->snake_length - 1]->width = SEGMENT_WIDTH;
+  s->tail[s->snake_length - 1]->name = NULL;
   if (s->snake_length - 1) {
     wclear(s->tail[s->snake_length - 2]);
     s->tail[s->snake_length - 2]->border = 0;
@@ -106,7 +107,7 @@ int main() {
   refresh();
 
   char c;
-  while ((c = getch(100)) != 'q') {
+  while ((c = getch(200)) != 'q') {
     s->direction = c == 'd'   ? 0
                    : c == 'w' ? 1
                    : c == 'a' ? 2
