@@ -7,6 +7,7 @@
 typedef struct {
   int snake_length;
   int direction;
+
   window **tail;
 } snake;
 
@@ -90,6 +91,7 @@ void snake_step(snake *s) {
 }
 
 int main() {
+  int pause = 0;
   init();
   cursset(0);
   refresh();
@@ -99,6 +101,8 @@ int main() {
   s->tail[0]->x = 0;
   s->tail[0]->y = 0;
   s->direction = 0;
+  int buffer_direction = s->direction;
+
   for (int i = 0; i < 3; i++)
     add_segment(s);
   render_windows();
@@ -108,23 +112,28 @@ int main() {
   int frame;
   while (c != 'q') {
     char c1 = getch(2);
+    pause = c1 == ' ' ? 1 - pause : pause;
     c = c1 != 0 ? c1 : c;
-    s->direction = c == 'd' && s->direction != 2   ? 0
-                   : c == 'w' && s->direction != 3 ? 1
-                   : c == 'a' && s->direction != 0 ? 2
-                   : c == 's' && s->direction != 1 ? 3
-                                                   : s->direction;
-    if (frame % 50 == 0) {
-      if (c == 'e')
-        add_segment(s);
-      else
-        snake_step(s);
-      clear();
-      render_windows();
-      refresh();
-    }
+    s->direction = c == 'd' && buffer_direction != 2   ? 0
+                   : c == 'w' && buffer_direction != 3 ? 1
+                   : c == 'a' && buffer_direction != 0 ? 2
+                   : c == 's' && buffer_direction != 1 ? 3
+                                                       : s->direction;
 
-    frame++;
+    if (!pause) {
+      if (frame % 50 == 0) {
+        buffer_direction = s->direction;
+        if (c == 'e')
+          add_segment(s);
+        else
+          snake_step(s);
+        clear();
+        render_windows();
+        refresh();
+      }
+
+      frame++;
+    }
   }
   restore();
   return 0;
