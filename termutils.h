@@ -100,6 +100,7 @@ struct window {
   int layer;
 
   int border, filling;
+  int visible;
 
   struct cell **content;
   int content_length, content_offset_x, content_offset_y;
@@ -113,7 +114,7 @@ struct window {
 typedef struct window window;
 
 // funcs
-struct window *new_window(void (*updater)(window *));
+struct window *new_window(int layer);
 void wposwchar(window *win, int y, int x, wchar_t c);
 void wclear(window *win);
 void render_windows();

@@ -50,12 +50,9 @@ void restore() {
   cursset(1);
   tcsetattr(STDIN_FILENO, TCSANOW, &original);
   for (int i = 0; i < wincount; i++) {
-    if (windows[i]->content) {
-      for (int j = 0; j < windows[i]->content_length; j++)
-        free(windows[i]->content[j]);
-      free(windows[i]->content);
-    }
-    // free(windows[i]->name);
+    wclear(windows[i]);
+    if (windows[i]->name)
+      free(windows[i]->name);
     free(windows[i]);
   }
   refresh();
@@ -231,14 +228,16 @@ void disable_mouse() {
   fflush(stdout);
 }
 
-window *new_window(void (*updater)(window *)) {
+window *new_window(int layer) {
   getsize(&ROWS, &COLS);
   window *win = malloc(sizeof(window));
   win->id = wincount;
   win->name = NULL;
-  win->updater = updater;
+  win->updater = NULL;
   win->border = 0;
   win->filling = 1;
+  win->visible = 1;
+  win->layer = layer;
   win->content_length = 0;
   win->content_offset_x = 0;
   win->content_offset_y = 0;
@@ -249,6 +248,15 @@ window *new_window(void (*updater)(window *)) {
   else
     windows = malloc(sizeof(window *) * (++wincount));
   *(windows + (wincount - 1)) = win;
+
+  for (int i = 0; i < wincount - 1; i++)
+    for (int j = 0; j < wincount - 1; j++)
+      if (windows[j]->layer > windows[j + 1]->layer) {
+        window *swap = windows[j];
+        windows[j] = windows[j + 1];
+        windows[j + 1] = swap;
+      }
+
   return win;
 }
 
@@ -278,54 +286,60 @@ void wposwchar(window *win, int y, int x, wchar_t c) {
 }
 
 void wclear(window *win) {
-  for (int i = 0; i < win->content_length; i++)
-    free(win->content[i]);
-  win->content_length = 0;
-  free(win->content);
+  if (win)
+    if (win->content_length) {
+      for (int i = 0; i < win->content_length; i++)
+        free(win->content[i]);
+      win->content_length = 0;
+      free(win->content);
+    }
 }
 
 void render_windows() {
   for (int i = 0; i < wincount; i++) {
     window *win = windows[i];
-    win->updater(win);
+    if (win->updater)
+      win->updater(win);
 
-    if (win->dragable) {
-      if (MOUSE.event == LEFT && MOUSE.y == win->y &&
-          (win->x <= MOUSE.x && MOUSE.x <= win->x + win->width)) {
-        win->drag = 1;
-        win->drag_ofset = MOUSE.x - win->x;
+    if (win->visible) {
+      if (win->dragable) {
+        if (MOUSE.event == LEFT && MOUSE.y == win->y &&
+            (win->x <= MOUSE.x && MOUSE.x <= win->x + win->width)) {
+          win->drag = 1;
+          win->drag_ofset = MOUSE.x - win->x;
+        }
+        if (win->drag) {
+          if (MOUSE.event == IDLE)
+            win->drag = 0;
+          win->x = MOUSE.x - win->drag_ofset;
+          win->y = MOUSE.y;
+        }
       }
-      if (win->drag) {
-        if (MOUSE.event == IDLE)
-          win->drag = 0;
-        win->x = MOUSE.x - win->drag_ofset;
-        win->y = MOUSE.y;
-      }
+
+      if (win->x < 0)
+        win->x = 0;
+      if (win->y < 0)
+        win->y = 0;
+      if (win->x + win->width > COLS)
+        win->x = COLS - win->width;
+      if (win->y + win->height > ROWS)
+        win->y = ROWS - win->height;
+
+      if (win->filling)
+        for (int i = 0; i < win->height - 2; i++)
+          for (int j = 0; j < win->width - 2; j++)
+            poschar(win->y + i + 1, win->x + j + 1, ' ');
+
+      for (int i = 0; i < win->content_length; i++)
+        if ((win->content[i]->y < win->height - 2) &&
+            (win->content[i]->x < win->width - 2))
+          poswchar(win->y + win->content[i]->y + 1,
+                   win->x + win->content[i]->x + 1, win->content[i]->sym);
+
+      if (win->border != -1)
+        box(win->y, win->x, win->height, win->width, win->border);
+      if (win->name)
+        posprint(win->y, win->x + 1, win->name);
     }
-
-    if (win->x < 0)
-      win->x = 0;
-    if (win->y < 0)
-      win->y = 0;
-    if (win->x + win->width > COLS)
-      win->x = COLS - win->width;
-    if (win->y + win->height > ROWS)
-      win->y = ROWS - win->height;
-
-    if (win->filling)
-      for (int i = 0; i < win->height - 2; i++)
-        for (int j = 0; j < win->width - 2; j++)
-          poschar(win->y + i + 1, win->x + j + 1, ' ');
-
-    for (int i = 0; i < win->content_length; i++)
-      if ((win->content[i]->y < win->height - 2) &&
-          (win->content[i]->x < win->width - 2))
-        poswchar(win->y + win->content[i]->y + 1,
-                 win->x + win->content[i]->x + 1, win->content[i]->sym);
-
-    if (win->border != -1)
-      box(win->y, win->x, win->height, win->width, win->border);
-    if (win->name)
-      posprint(win->y, win->x + 1, win->name);
   }
 }

@@ -1,8 +1,6 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <termutils.h>
 #include <time.h>
-#include <wchar.h>
 
 #define SEGMENT_HEIGHT 3
 #define SEGMENT_WIDTH 5
@@ -14,12 +12,9 @@ typedef struct {
   window **tail;
 } snake;
 
-void segment_updater(struct window *win) {}
-void food_updater(struct window *win) {}
-
 void add_segment(snake *s) {
   s->tail = realloc(s->tail, sizeof(window *) * (++s->snake_length));
-  s->tail[s->snake_length - 1] = new_window(segment_updater);
+  s->tail[s->snake_length - 1] = new_window(1);
   s->tail[s->snake_length - 1]->height = SEGMENT_HEIGHT;
   s->tail[s->snake_length - 1]->width = SEGMENT_WIDTH;
   if (s->snake_length - 1) {
@@ -131,7 +126,7 @@ int main() {
   cursset(0);
   refresh();
 
-  window *food = new_window(food_updater);
+  window *food = new_window(0);
   food->border = -1;
   food->height = SEGMENT_HEIGHT;
   food->width = SEGMENT_WIDTH;
