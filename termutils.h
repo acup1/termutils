@@ -108,6 +108,7 @@ struct window {
   void (*updater)(struct window *);
 
   int dragable, drag, drag_ofset;
+  int clickable, clicked, clicked_x, clicked_y;
 };
 
 // typedef

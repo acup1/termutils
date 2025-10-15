@@ -1,8 +1,6 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <termutils.h>
 #include <time.h>
-#include <wchar.h>
 
 #define SEGMENT_HEIGHT 3
 #define SEGMENT_WIDTH 5
@@ -134,10 +132,6 @@ int snake_self_collision(snake *s) {
       return 1;
   return 0;
 }
-
-// int coordinate_collision(window *win, int y, int x) {
-//   return (win1->y == win2->y && win1->x == win2->x);
-// }
 
 int main() {
   srand(time(NULL));

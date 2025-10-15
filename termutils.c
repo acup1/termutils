@@ -242,6 +242,10 @@ window *new_window(int layer) {
   win->content_offset_x = 0;
   win->content_offset_y = 0;
   win->dragable = 0;
+  win->clickable = 0;
+  win->clicked = 0;
+  win->clicked_x = 0;
+  win->clicked_y = 0;
 
   if (wincount > 0)
     windows = realloc(windows, sizeof(window *) * (++wincount));
@@ -298,10 +302,19 @@ void wclear(window *win) {
 void render_windows() {
   for (int i = 0; i < wincount; i++) {
     window *win = windows[i];
-    if (win->updater)
-      win->updater(win);
 
     if (win->visible) {
+      if (win->clickable) {
+        win->clicked = 0;
+        if (MOUSE.event == LEFT &&
+            (win->y <= MOUSE.y && MOUSE.y <= (win->y + win->height - 1)) &&
+            (win->x <= MOUSE.x && MOUSE.x <= (win->x + win->width - 1))) {
+          win->clicked = 1;
+          win->clicked_y = MOUSE.y - win->y - 1;
+          win->clicked_x = MOUSE.x - win->x - 1;
+        }
+      }
+
       if (win->dragable) {
         if (MOUSE.event == LEFT && MOUSE.y == win->y &&
             (win->x <= MOUSE.x && MOUSE.x <= win->x + win->width)) {
@@ -341,5 +354,7 @@ void render_windows() {
       if (win->name)
         posprint(win->y, win->x + 1, win->name);
     }
+    if (win->updater)
+      win->updater(win);
   }
 }
