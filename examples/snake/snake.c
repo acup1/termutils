@@ -1,6 +1,8 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <termutils.h>
 #include <time.h>
+#include <wchar.h>
 
 #define SEGMENT_HEIGHT 3
 #define SEGMENT_WIDTH 5
@@ -20,26 +22,35 @@ void add_segment(snake *s) {
   if (s->snake_length - 1) {
     wclear(s->tail[s->snake_length - 2]);
     s->tail[s->snake_length - 2]->border = 0;
-
     switch (s->direction) {
     case 0:
       s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
       s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
+          s->tail[s->snake_length - 2]->x >=
+                  COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+              ? 0
+              : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
       break;
     case 1:
       s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
+          s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
+              ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+              : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
       s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
       break;
     case 2:
       s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
       s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
+          s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
+              ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+              : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
       break;
     case 3:
       s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
+          s->tail[s->snake_length - 2]->y >=
+                  ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+              ? 0
+              : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
       s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
       break;
     }
@@ -68,21 +79,31 @@ void snake_step(snake *s) {
     case 0:
       s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
       s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
+          s->tail[s->snake_length - 2]->x >=
+                  COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+              ? 0
+              : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
       break;
     case 1:
       s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
+          s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
+              ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+              : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
       s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
       break;
     case 2:
       s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
       s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
+          s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
+              ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+              : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
       break;
     case 3:
       s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
+          s->tail[s->snake_length - 2]->y >=
+                  ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+              ? 0
+              : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
       s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
       break;
     }
