@@ -306,7 +306,7 @@ void render_windows() {
     if (win->visible) {
       if (win->clickable) {
         win->clicked = 0;
-        if (MOUSE.event == LEFT &&
+        if ((MOUSE.event == LEFT || MOUSE.event == SPAM_LEFT) &&
             (win->y <= MOUSE.y && MOUSE.y <= (win->y + win->height - 1)) &&
             (win->x <= MOUSE.x && MOUSE.x <= (win->x + win->width - 1))) {
           win->clicked = 1;

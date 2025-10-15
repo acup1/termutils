@@ -13,13 +13,13 @@ int main() {
   refresh();
 
   window *mywin = new_window(0);
-  mywin->width = 40;
-  mywin->height = 20;
+  mywin->width = COLS;
+  mywin->height = ROWS;
   mywin->clickable = 1;
   mywin->updater = mywin_updater;
 
   char c;
-  while ((c = getch(100)) != 'q') {
+  while ((c = getch(10)) != 'q') {
     clear();
     render_windows();
     refresh();
