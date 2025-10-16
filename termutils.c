@@ -310,11 +310,32 @@ void wclear(window_p win) {
     }
 }
 
+void wtogglefullscreen(window_p win) {
+  win->fullscreen = 1 - win->fullscreen;
+
+  if (win->fullscreen) {
+    win->_y = win->y;
+    win->_x = win->x;
+    win->_width = win->width;
+    win->_height = win->height;
+
+    win->y = -1;
+    win->x = -1;
+    win->width = COLS + 3;
+    win->height = ROWS + 3;
+  } else {
+    win->y = win->_y;
+    win->x = win->_x;
+    win->width = win->_width;
+    win->height = win->_height;
+  }
+}
+
 void render_windows() {
   for (int i = 0; i < wincount; i++) {
     window_p win = windows[i];
 
-    if (win->visible) {
+    if (win && win->visible) {
       if (win->clickable) {
         win->clicked = 0;
         if ((MOUSE.event == LEFT || MOUSE.event == SPAM_LEFT) &&
@@ -349,6 +370,13 @@ void render_windows() {
           win->x = COLS - win->width;
         if (win->y + win->height > ROWS)
           win->y = ROWS - win->height;
+      }
+
+      if (win->fullscreen) {
+        win->y = -1;
+        win->x = -1;
+        win->width = COLS + 3;
+        win->height = ROWS + 3;
       }
 
       if (win->filling)

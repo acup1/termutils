@@ -119,6 +119,7 @@ typedef struct window *window_p;
 window_p new_window(int layer);
 void wposwchar(window_p win, int y, int x, wchar_t c);
 void wclear(window_p win);
+void wtogglefullscreen(window_p win);
 void render_windows();
 
 #endif // !TERMUTILS_H
