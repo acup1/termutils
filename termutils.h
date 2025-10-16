@@ -79,7 +79,7 @@ void poschar(int y, int x, char c);
 void poswchar(int y, int x, wchar_t c);
 void clear();
 void box(int y, int x, int h, int w, int style);
-int getch(int timeout);
+int getch(int timeout, int wait);
 
 // mouse
 void enable_mouse();
@@ -92,10 +92,10 @@ struct window {
   int id;
   char *name;
 
-  int x;
-  int y;
-  int width;
-  int height;
+  int x, y, width, height;
+  int always_on_sreen;
+  int fullscreen;
+  int _x, _y, _width, _height;
 
   int layer;
 
@@ -113,11 +113,12 @@ struct window {
 
 // typedef
 typedef struct window window;
+typedef struct window *window_p;
 
 // funcs
-struct window *new_window(int layer);
-void wposwchar(window *win, int y, int x, wchar_t c);
-void wclear(window *win);
+window_p new_window(int layer);
+void wposwchar(window_p win, int y, int x, wchar_t c);
+void wclear(window_p win);
 void render_windows();
 
 #endif // !TERMUTILS_H

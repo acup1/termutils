@@ -1,4 +1,4 @@
 all:
-	gcc -static clctest.c -o clctest -ltermutils -lm && ./clctest
+	gcc -static main.c -o clctest -ltermutils -lm && ./clctest
 
 .PHONY: all

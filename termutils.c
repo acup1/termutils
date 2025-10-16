@@ -84,21 +84,30 @@ void cursset(int visibility) {
   refresh();
 }
 
-void setpos(int y, int x) { printf("\033[%d;%dH", y + 1, x + 1); }
+void setpos(int y, int x) {
+  if (0 <= y && y <= ROWS && 0 <= x && x <= COLS)
+    printf("\033[%d;%dH", y + 1, x + 1);
+}
 
 void posprint(int y, int x, char *s) {
-  setpos(y, x);
-  printf("%s", s);
+  if (0 <= y && y <= ROWS && 0 <= x && x <= COLS) {
+    setpos(y, x);
+    printf("%s", s);
+  }
 }
 
 void poschar(int y, int x, char c) {
-  setpos(y, x);
-  printf("%c", c);
+  if (0 <= y && y <= ROWS && 0 <= x && x <= COLS) {
+    setpos(y, x);
+    printf("%c", c);
+  }
 }
 
 void poswchar(int y, int x, wchar_t c) {
-  setpos(y, x);
-  printf("%lc", c);
+  if (0 <= y && y <= ROWS && 0 <= x && x <= COLS) {
+    setpos(y, x);
+    printf("%lc", c);
+  }
 }
 
 void clear() { printf("\033[2J"); }
@@ -125,7 +134,7 @@ void box(int y, int x, int h, int w, int style) {
   posprint(y + h - 1, x + w - 1, style ? "┘" : "╯");
 }
 
-int getch(int timeout) {
+int getch(int timeout, int wait) {
   clock_t start = clock();
   int ret = KEY_FAIL;
   struct pollfd fds[1];
@@ -210,8 +219,9 @@ int getch(int timeout) {
       break;
     }
   }
-  while ((double)((clock() - start) * 1000) / CLOCKS_PER_SEC < timeout)
-    ;
+  if (wait)
+    while ((double)((clock() - start) * 1000) / CLOCKS_PER_SEC < timeout)
+      ;
   return ret;
 }
 
@@ -228,15 +238,16 @@ void disable_mouse() {
   fflush(stdout);
 }
 
-window *new_window(int layer) {
+window_p new_window(int layer) {
   getsize(&ROWS, &COLS);
-  window *win = malloc(sizeof(window));
+  window_p win = malloc(sizeof(window));
   win->id = wincount;
   win->name = NULL;
   win->updater = NULL;
   win->border = 0;
   win->filling = 1;
   win->visible = 1;
+  win->always_on_sreen = 1;
   win->layer = layer;
   win->content_length = 0;
   win->content_offset_x = 0;
@@ -248,15 +259,15 @@ window *new_window(int layer) {
   win->clicked_y = 0;
 
   if (wincount > 0)
-    windows = realloc(windows, sizeof(window *) * (++wincount));
+    windows = realloc(windows, sizeof(window_p) * (++wincount));
   else
-    windows = malloc(sizeof(window *) * (++wincount));
+    windows = malloc(sizeof(window_p) * (++wincount));
   *(windows + (wincount - 1)) = win;
 
   for (int i = 0; i < wincount - 1; i++)
     for (int j = 0; j < wincount - 1; j++)
       if (windows[j]->layer > windows[j + 1]->layer) {
-        window *swap = windows[j];
+        window_p swap = windows[j];
         windows[j] = windows[j + 1];
         windows[j + 1] = swap;
       }
@@ -264,7 +275,7 @@ window *new_window(int layer) {
   return win;
 }
 
-void wposwchar(window *win, int y, int x, wchar_t c) {
+void wposwchar(window_p win, int y, int x, wchar_t c) {
   int draw = 1;
   for (int i = 0; i < win->content_length && draw; i++)
     if (win->content[i]->sym == c && win->content[i]->x == x &&
@@ -289,7 +300,7 @@ void wposwchar(window *win, int y, int x, wchar_t c) {
   }
 }
 
-void wclear(window *win) {
+void wclear(window_p win) {
   if (win)
     if (win->content_length) {
       for (int i = 0; i < win->content_length; i++)
@@ -301,7 +312,7 @@ void wclear(window *win) {
 
 void render_windows() {
   for (int i = 0; i < wincount; i++) {
-    window *win = windows[i];
+    window_p win = windows[i];
 
     if (win->visible) {
       if (win->clickable) {
@@ -329,14 +340,16 @@ void render_windows() {
         }
       }
 
-      if (win->x < 0)
-        win->x = 0;
-      if (win->y < 0)
-        win->y = 0;
-      if (win->x + win->width > COLS)
-        win->x = COLS - win->width;
-      if (win->y + win->height > ROWS)
-        win->y = ROWS - win->height;
+      if (win->always_on_sreen) {
+        if (win->x < 0)
+          win->x = 0;
+        if (win->y < 0)
+          win->y = 0;
+        if (win->x + win->width > COLS)
+          win->x = COLS - win->width;
+        if (win->y + win->height > ROWS)
+          win->y = ROWS - win->height;
+      }
 
       if (win->filling)
         for (int i = 0; i < win->height - 2; i++)
