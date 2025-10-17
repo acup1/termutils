@@ -163,7 +163,7 @@ int main() {
   char c;
   int frame;
   while (game) {
-    char c1 = getch(2);
+    char c1 = getch(2, 1);
     pause = c1 == ' ' ? 1 - pause : pause;
     c = c1 != 0 ? c1 : c;
     s->direction = c == 'd' && buffer_direction != 2   ? 0
