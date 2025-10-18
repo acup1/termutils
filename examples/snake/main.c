@@ -9,7 +9,7 @@ typedef struct {
   int snake_length;
   int direction;
 
-  window **tail;
+  window_p *tail;
 } snake;
 
 void add_segment(snake *s) {
@@ -133,12 +133,21 @@ int snake_self_collision(snake *s) {
   return 0;
 }
 
+void menu_bg_updater(window_p win) {
+  wclear(win);
+  for (int i = 0; i < win->height - 3; i++)
+    for (int j = 0; j < win->width - 3; j++)
+      if ((i + j) % 5 == 0)
+        wposwchar(win, i, j, L'|');
+}
+
 int main() {
   srand(time(NULL));
   int game = 1;
   int pause = 0;
   init();
   cursset(0);
+  enable_mouse();
   refresh();
 
   window *food = new_window(0);
@@ -157,14 +166,31 @@ int main() {
     add_segment(s);
 
   change_food_position(food, s);
+
+  window_p menu_bg = new_window(100);
+  menu_bg->updater = menu_bg_updater;
+  menu_bg->x = 0;
+  menu_bg->y = 0;
+  menu_bg->width = 0;
+  menu_bg->height = 0;
+  menu_bg->filling = 0;
+  menu_bg->visible = 0;
+  wtogglefullscreen(menu_bg);
+  window_p menu_start_btn = new_window(101);
+
   render_windows();
   refresh();
 
   char c;
   int frame;
   while (game) {
-    char c1 = getch(2, 1);
+    char c1 = getch(4, 1);
     pause = c1 == ' ' ? 1 - pause : pause;
+    if (pause) {
+      menu_bg->visible = 1;
+    } else {
+      menu_bg->visible = 0;
+    }
     c = c1 != 0 ? c1 : c;
     s->direction = c == 'd' && buffer_direction != 2   ? 0
                    : c == 'w' && buffer_direction != 3 ? 1
@@ -173,7 +199,7 @@ int main() {
                                                        : s->direction;
 
     if (!pause) {
-      if (frame % 40 == 0) {
+      if (frame % 20 == 0) {
         buffer_direction = s->direction;
         if (collision(s->tail[s->snake_length - 1], food)) {
           change_food_position(food, s);
@@ -186,8 +212,14 @@ int main() {
         refresh();
       }
 
-      frame++;
+    } else {
+      if (frame % 20 == 0) {
+        clear();
+        render_windows();
+        refresh();
+      }
     }
+    frame++;
     game = c == 'q' ? 0 : game;
   }
   restore();
