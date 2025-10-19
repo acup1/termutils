@@ -12,6 +12,9 @@ typedef struct {
   window_p *tail;
 } snake;
 
+int game = 1;
+int pause = 0;
+
 void add_segment(snake *s) {
   s->tail = realloc(s->tail, sizeof(window *) * (++s->snake_length));
   s->tail[s->snake_length - 1] = new_window(1);
@@ -53,56 +56,58 @@ void add_segment(snake *s) {
       break;
     }
   }
-  wposwchar(s->tail[s->snake_length - 1], 0, 0, L'\'');
-  wposwchar(s->tail[s->snake_length - 1], 0, 1, L'~');
-  wposwchar(s->tail[s->snake_length - 1], 0, 2, L'\'');
+  wposwchar(s->tail[s->snake_length - 1], SEGMENT_HEIGHT / 2 - 1,
+            SEGMENT_WIDTH / 2 - 2, L'\'');
+  wposwchar(s->tail[s->snake_length - 1], SEGMENT_HEIGHT / 2 - 1,
+            SEGMENT_WIDTH / 2 - 1, L'~');
+  wposwchar(s->tail[s->snake_length - 1], SEGMENT_HEIGHT / 2 - 1,
+            SEGMENT_WIDTH / 2, L'\'');
   s->tail[s->snake_length - 1]->border = 1;
   s->tail[s->snake_length - 1]->filling = 0;
 }
 
 void snake_step(snake *s) {
-  struct window *last = s->tail[0];
+  window_p last = s->tail[0];
   for (int i = 0; i < s->snake_length - 1; i++) {
     s->tail[i] = s->tail[i + 1];
   }
   wclear(s->tail[s->snake_length - 1]);
   s->tail[s->snake_length - 1]->border = 0;
   s->tail[s->snake_length - 1] = last;
-  s->tail[s->snake_length - 1]->border = 1;
-  wposwchar(last, 0, 0, L'\'');
-  wposwchar(last, 0, 1, L'~');
-  wposwchar(last, 0, 2, L'\'');
+  last->border = 1;
+  wposwchar(last, SEGMENT_HEIGHT / 2 - 1, SEGMENT_WIDTH / 2 - 2, L'\'');
+  wposwchar(last, SEGMENT_HEIGHT / 2 - 1, SEGMENT_WIDTH / 2 - 1, L'~');
+  wposwchar(last, SEGMENT_HEIGHT / 2 - 1, SEGMENT_WIDTH / 2, L'\'');
+
   if (s->snake_length - 1) {
     switch (s->direction) {
     case 0:
-      s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
-      s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x >=
-                  COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
-              ? 0
-              : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
+      last->y = s->tail[s->snake_length - 2]->y;
+      last->x = s->tail[s->snake_length - 2]->x >=
+                        COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+                    ? 0
+                    : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
       break;
     case 1:
-      s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
-              ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
-              : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
-      s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
+      last->y = s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
+                    ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+                    : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
+      last->x = s->tail[s->snake_length - 2]->x;
       break;
     case 2:
-      s->tail[s->snake_length - 1]->y = s->tail[s->snake_length - 2]->y;
-      s->tail[s->snake_length - 1]->x =
-          s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
-              ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
-              : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
+      last->y = s->tail[s->snake_length - 2]->y;
+      last->x = s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
+                    ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+                    : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
       break;
     case 3:
-      s->tail[s->snake_length - 1]->y =
-          s->tail[s->snake_length - 2]->y >=
-                  ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
-              ? 0
-              : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
-      s->tail[s->snake_length - 1]->x = s->tail[s->snake_length - 2]->x;
+      last->y = s->tail[s->snake_length - 2]->y >=
+                        ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+                    ? 0
+                    : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
+      last->x = s->tail[s->snake_length - 2]->x;
+      break;
+    default:
       break;
     }
   }
@@ -137,14 +142,18 @@ void menu_bg_updater(window_p win) {
   wclear(win);
   for (int i = 0; i < win->height - 3; i++)
     for (int j = 0; j < win->width - 3; j++)
-      if ((i + j) % 5 == 0)
-        wposwchar(win, i, j, L'|');
+      if ((i + j) % SEGMENT_WIDTH == 0)
+        wposwchar(win, i, j, L'*');
+}
+void menu_continue_btn_updater(window_p win) {
+  win->x = COLS / 2 - 5;
+  win->y = ROWS / 2 - 1;
+  if (win->clicked)
+    pause = 0;
 }
 
 int main() {
   srand(time(NULL));
-  int game = 1;
-  int pause = 0;
   init();
   cursset(0);
   enable_mouse();
@@ -176,7 +185,13 @@ int main() {
   menu_bg->filling = 0;
   menu_bg->visible = 0;
   wtogglefullscreen(menu_bg);
-  window_p menu_start_btn = new_window(101);
+  window_p menu_continue_btn = new_window(101);
+  menu_continue_btn->name = "continue";
+  menu_continue_btn->width = 10;
+  menu_continue_btn->height = 2;
+  menu_continue_btn->visible = 0;
+  menu_continue_btn->clickable = 1;
+  menu_continue_btn->updater = menu_continue_btn_updater;
 
   render_windows();
   refresh();
@@ -184,12 +199,14 @@ int main() {
   char c;
   int frame;
   while (game) {
-    char c1 = getch(4, 1);
+    char c1 = getch(2, 1);
     pause = c1 == ' ' ? 1 - pause : pause;
     if (pause) {
       menu_bg->visible = 1;
+      menu_continue_btn->visible = 1;
     } else {
       menu_bg->visible = 0;
+      menu_continue_btn->visible = 0;
     }
     c = c1 != 0 ? c1 : c;
     s->direction = c == 'd' && buffer_direction != 2   ? 0
@@ -199,7 +216,7 @@ int main() {
                                                        : s->direction;
 
     if (!pause) {
-      if (frame % 20 == 0) {
+      if (frame % 40 == 0) {
         buffer_direction = s->direction;
         if (collision(s->tail[s->snake_length - 1], food)) {
           change_food_position(food, s);
@@ -210,13 +227,14 @@ int main() {
         clear();
         render_windows();
         refresh();
+        frame = 0;
       }
-
     } else {
       if (frame % 20 == 0) {
         clear();
         render_windows();
         refresh();
+        frame = 0;
       }
     }
     frame++;

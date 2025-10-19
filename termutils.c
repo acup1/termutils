@@ -37,6 +37,8 @@ void init() {
   // sa.sa_flags = 0;
   // sigaction(SIGWINCH, &sa, NULL);
 
+  ROWS = 20;
+  COLS = 10;
   getsize(&ROWS, &COLS);
   printf("\033[?1049h");
   clear();
@@ -67,10 +69,7 @@ void getsize(int *height, int *width) {
   //   *height = 10;
   // }
   struct winsize w;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) {
-    *width = 20;
-    *height = 10;
-  } else {
+  if (!(ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1)) {
     *width = w.ws_col;
     *height = w.ws_row;
   }
@@ -238,6 +237,42 @@ void disable_mouse() {
   fflush(stdout);
 }
 
+// window_p new_window(int layer) {
+//   getsize(&ROWS, &COLS);
+//   window_p win = malloc(sizeof(window));
+//   win->id = wincount;
+//   win->name = NULL;
+//   win->updater = NULL;
+//   win->border = 0;
+//   win->filling = 1;
+//   win->visible = 1;
+//   win->always_on_sreen = 1;
+//   win->layer = layer;
+//   win->content_length = 0;
+//   win->content_offset_x = 0;
+//   win->content_offset_y = 0;
+//   win->dragable = 0;
+//   win->clickable = 0;
+//   win->clicked = 0;
+//   win->clicked_x = 0;
+//   win->clicked_y = 0;
+//
+//   if (wincount > 0)
+//     windows = realloc(windows, sizeof(window_p) * (++wincount));
+//   else
+//     windows = malloc(sizeof(window_p) * (++wincount));
+//   *(windows + (wincount - 1)) = win;
+//
+//   for (int i = 0; i < wincount - 1; i++)
+//     for (int j = 0; j < wincount - 1; j++)
+//       if (windows[j]->layer > windows[j + 1]->layer) {
+//         window_p swap = windows[j];
+//         windows[j] = windows[j + 1];
+//         windows[j + 1] = swap;
+//       }
+//
+//   return win;
+// }
 window_p new_window(int layer) {
   getsize(&ROWS, &COLS);
   window_p win = malloc(sizeof(window));
@@ -259,18 +294,22 @@ window_p new_window(int layer) {
   win->clicked_y = 0;
 
   if (wincount > 0)
-    windows = realloc(windows, sizeof(window_p) * (++wincount));
+    windows = realloc(windows, sizeof(window_p) * (wincount + 1));
   else
-    windows = malloc(sizeof(window_p) * (++wincount));
-  *(windows + (wincount - 1)) = win;
+    windows = malloc(sizeof(window_p));
 
-  for (int i = 0; i < wincount - 1; i++)
-    for (int j = 0; j < wincount - 1; j++)
-      if (windows[j]->layer > windows[j + 1]->layer) {
-        window_p swap = windows[j];
-        windows[j] = windows[j + 1];
-        windows[j + 1] = swap;
-      }
+  windows[wincount] = win;
+  wincount++;
+
+  for (int i = wincount - 1; i > 0; i--) {
+    if (windows[i]->layer < windows[i - 1]->layer) {
+      window_p temp = windows[i];
+      windows[i] = windows[i - 1];
+      windows[i - 1] = temp;
+    } else {
+      break;
+    }
+  }
 
   return win;
 }
