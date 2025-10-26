@@ -277,6 +277,10 @@ window_p new_window(int layer) {
   getsize(&ROWS, &COLS);
   window_p win = malloc(sizeof(window));
   win->id = wincount;
+  win->x = 0;
+  win->y = 0;
+  win->_x = 0;
+  win->_y = 0;
   win->name = NULL;
   win->updater = NULL;
   win->border = 0;

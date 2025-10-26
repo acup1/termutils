@@ -1,4 +1,7 @@
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termutils.h>
 #include <time.h>
 
@@ -20,6 +23,7 @@ void add_segment(snake *s) {
   s->tail[s->snake_length - 1] = new_window(1);
   s->tail[s->snake_length - 1]->height = SEGMENT_HEIGHT;
   s->tail[s->snake_length - 1]->width = SEGMENT_WIDTH;
+  s->tail[s->snake_length - 1]->always_on_sreen = 0;
   if (s->snake_length - 1) {
     wclear(s->tail[s->snake_length - 2]);
     s->tail[s->snake_length - 2]->border = 0;
@@ -79,37 +83,76 @@ void snake_step(snake *s) {
   wposwchar(last, SEGMENT_HEIGHT / 2 - 1, SEGMENT_WIDTH / 2 - 1, L'~');
   wposwchar(last, SEGMENT_HEIGHT / 2 - 1, SEGMENT_WIDTH / 2, L'\'');
 
+  // if (s->snake_length - 1) {
+  //   switch (s->direction) {
+  //   case 0:
+  //     last->y = s->tail[s->snake_length - 2]->y;
+  //     last->x = s->tail[s->snake_length - 2]->x >=
+  //                       COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+  //                   ? 0
+  //                   : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
+  //     break;
+  //   case 1:
+  //     last->y = s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
+  //                   ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+  //                   : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
+  //     last->x = s->tail[s->snake_length - 2]->x;
+  //     break;
+  //   case 2:
+  //     last->y = s->tail[s->snake_length - 2]->y;
+  //     last->x = s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
+  //                   ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+  //                   : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
+  //     break;
+  //   case 3:
+  //     last->y = s->tail[s->snake_length - 2]->y >=
+  //                       ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT -
+  //                       SEGMENT_HEIGHT
+  //                   ? 0
+  //                   : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
+  //     last->x = s->tail[s->snake_length - 2]->x;
+  //     break;
+  //   default:
+  //     break;
+  //   }
+  // }
   if (s->snake_length - 1) {
-    switch (s->direction) {
-    case 0:
-      last->y = s->tail[s->snake_length - 2]->y;
-      last->x = s->tail[s->snake_length - 2]->x >=
-                        COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
-                    ? 0
-                    : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
-      break;
-    case 1:
-      last->y = s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
-                    ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
-                    : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
-      last->x = s->tail[s->snake_length - 2]->x;
-      break;
-    case 2:
-      last->y = s->tail[s->snake_length - 2]->y;
-      last->x = s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
-                    ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
-                    : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
-      break;
-    case 3:
-      last->y = s->tail[s->snake_length - 2]->y >=
-                        ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
-                    ? 0
-                    : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
-      last->x = s->tail[s->snake_length - 2]->x;
-      break;
-    default:
-      break;
-    }
+    // switch (s->direction) {
+    // case 0:
+    //   last->y = s->tail[s->snake_length - 2]->y;
+    //   last->x = s->tail[s->snake_length - 2]->x >=
+    //                     COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+    //                 ? 0
+    //                 : s->tail[s->snake_length - 2]->x + SEGMENT_WIDTH;
+    //   break;
+    // case 1:
+    //   last->y = s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT < 0
+    //                 ? ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT - SEGMENT_HEIGHT
+    //                 : s->tail[s->snake_length - 2]->y - SEGMENT_HEIGHT;
+    //   last->x = s->tail[s->snake_length - 2]->x;
+    //   break;
+    // case 2:
+    //   last->y = s->tail[s->snake_length - 2]->y;
+    //   last->x = s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH < 0
+    //                 ? COLS / SEGMENT_WIDTH * SEGMENT_WIDTH - SEGMENT_WIDTH
+    //                 : s->tail[s->snake_length - 2]->x - SEGMENT_WIDTH;
+    //   break;
+    // case 3:
+    //   last->y = s->tail[s->snake_length - 2]->y >=
+    //                     ROWS / SEGMENT_HEIGHT * SEGMENT_HEIGHT -
+    //                     SEGMENT_HEIGHT
+    //                 ? 0
+    //                 : s->tail[s->snake_length - 2]->y + SEGMENT_HEIGHT;
+    //   last->x = s->tail[s->snake_length - 2]->x;
+    //   break;
+    // default:
+    //   break;
+    // }
+
+    last->y = s->tail[s->snake_length - 2]->y -
+              (int)sin(M_PI * (double)s->direction / 2) * SEGMENT_HEIGHT;
+    last->x = s->tail[s->snake_length - 2]->x +
+              (int)cos(M_PI * (double)s->direction / 2) * SEGMENT_WIDTH;
   }
 }
 
@@ -195,6 +238,10 @@ int main() {
 
   render_windows();
   refresh();
+  char buff[200];
+  int resize_flag = 0;
+  int x = COLS;
+  int y = ROWS;
 
   char c;
   int frame;
@@ -226,6 +273,9 @@ int main() {
         game = snake_self_collision(s) ? 0 : game;
         clear();
         render_windows();
+        sprintf(buff, "%d %d %d %d", COLS, ROWS, resize_flag,
+                (int)sin(M_PI * (double)s->direction / 2));
+        posprint(0, 0, buff);
         refresh();
         frame = 0;
       }
@@ -239,6 +289,8 @@ int main() {
     }
     frame++;
     game = c == 'q' ? 0 : game;
+    if (x != COLS && y != ROWS)
+      resize_flag = 1;
   }
   restore();
   return 0;
