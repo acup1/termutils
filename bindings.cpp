@@ -10,6 +10,55 @@ extern "C" {
 #include "termutils.h"
 }
 
+// // Вспомогательная функция для удаления окна (сдвиг массива)
+// void delete_window(window_p win) {
+//   if (!win || wincount == 0)
+//     return;
+//   int id = win->id;
+//   if (id >= wincount || windows[id] != win)
+//     return; // Проверка
+//
+//   wclear(win);
+//   if (win->name)
+//     free(win->name);
+//   free(win);
+//
+//   // Сдвиг массива
+//   for (int j = id; j < wincount - 1; ++j) {
+//     windows[j] = windows[j + 1];
+//     windows[j]->id = j; // Обновить id
+//   }
+//   wincount--;
+//   if (wincount > 0) {
+//     windows = (window **)realloc(windows, sizeof(window_p) * wincount);
+//   } else {
+//     free(windows);
+//     windows = NULL;
+//   }
+// }
+//
+// // restore без exit
+// void restore_no_exit() {
+//   printf(RESET_COLOR);
+//   disable_mouse();
+//   printf("\033[?1049l");
+//   cursset(1);
+//   tcsetattr(STDIN_FILENO, TCSANOW, &original);
+//   for (int i = 0; i < wincount; i++) {
+//     wclear(windows[i]);
+//     if (windows[i]->name)
+//       free(windows[i]->name);
+//     free(windows[i]);
+//   }
+//   wincount = 0;
+//   if (windows) {
+//     free(windows);
+//     windows = NULL;
+//   }
+//   refresh();
+// }
+
+// Класс-обёртка для window
 class PyWindow {
 public:
   window_p _win;
@@ -18,6 +67,7 @@ public:
 
   ~PyWindow() {
     if (_win) {
+      // delete_window(_win);
       _win = nullptr;
     }
   }
@@ -103,7 +153,7 @@ public:
 
   // Методы
   void pos_wchar(int y, int x, py::str c) {
-    if (!_win || c.empty())
+    if (!_win || c.cast<std::string>().empty())
       return;
     std::wstring ws = c.cast<std::wstring>();
     if (!ws.empty()) {
@@ -180,21 +230,16 @@ PYBIND11_MODULE(termutils, m) {
 
   // Глобальные переменные (через функции)
   m.def("get_rows", []() { return ROWS; });
-  m.def(
-      "set_rows",
-      <a href = "int v" target = "_blank" rel = "noopener noreferrer nofollow">
-      </ a> { ROWS = v; });
+  m.def("set_rows", [](int v) { ROWS = v; });
   m.def("get_cols", []() { return COLS; });
-  m.def(
-      "set_cols",
-      <a href = "int v" target = "_blank" rel = "noopener noreferrer nofollow">
-      </ a> { COLS = v; });
+  m.def("set_cols", [](int v) { COLS = v; });
   m.def("get_mouse",
         []() { return mouse{MOUSE.x, MOUSE.y, MOUSE.event}; }); // Копия
 
   // Функции
   m.def("init", &init);
   m.def("restore", &restore); // С exit(0)
+  // m.def("restore_no_exit", &restore_no_exit);
   m.def("refresh", &refresh);
   m.def("get_size", []() {
     int h = 0, w = 0;
@@ -203,23 +248,19 @@ PYBIND11_MODULE(termutils, m) {
   });
   m.def("cursset", &cursset);
   m.def("setpos", &setpos);
-  m.def(
-      "posprint", <a href = "int y, int x, py::str s" target = "_blank" rel =
-                       "noopener noreferrer nofollow"></ a> {
-        if (s.empty())
-          return;
-        posprint(y, x, const_cast<char *>(s.cast<std::string>().c_str()));
-      });
+  m.def("posprint", [](int y, int x, py::str s) {
+    if (s.cast<std::string>().empty())
+      return;
+    posprint(y, x, const_cast<char *>(s.cast<std::string>().c_str()));
+  });
   m.def("poschar", &poschar);
-  m.def(
-      "poswchar", <a href = "int y, int x, py::str c" target = "_blank" rel =
-                       "noopener noreferrer nofollow"></ a> {
-        if (c.empty())
-          return;
-        std::wstring ws = c.cast<std::wstring>();
-        if (!ws.empty())
-          poswchar(y, x, ws[0]);
-      });
+  m.def("poswchar", [](int y, int x, py::str c) {
+    if (c.cast<std::string>().empty())
+      return;
+    std::wstring ws = c.cast<std::wstring>();
+    if (!ws.empty())
+      poswchar(y, x, ws[0]);
+  });
   m.def("clear", &clear);
   m.def("box", &box);
   m.def("getch", &getch);
