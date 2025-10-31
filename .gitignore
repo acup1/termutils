@@ -2,3 +2,4 @@ venv/
 build/
 termutils.egg-info/
 *.so
+*.out

@@ -152,13 +152,10 @@ public:
   int get_clicked_y() const { return _win ? _win->clicked_y : 0; }
 
   // Методы
-  void pos_wchar(int y, int x, py::str c) {
-    if (!_win || c.cast<std::string>().empty())
+  void pos_wchar(int y, int x, const std::string &c) {
+    if (!_win || c.empty())
       return;
-    std::wstring ws = c.cast<std::wstring>();
-    if (!ws.empty()) {
-      wposwchar(_win, y, x, ws[0]);
-    }
+    wposwchar(_win, y, x, (wchar_t)strdup(c.c_str())[0]);
   }
   void clear() {
     if (_win)
@@ -171,7 +168,7 @@ public:
 };
 
 PYBIND11_MODULE(termutils, m) {
-  m.doc() = "termutils - Terminal UI library bindings for Python";
+  m.doc() = "termutils";
 
   // Константы цветов
   m.attr("FG_BLACK") = py::str(FG_BLACK);
