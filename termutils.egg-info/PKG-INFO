@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: termutils
+Version: 1.0.0
+Summary: lib for working with raw terminal and windows
+Author: acup
+Author-email: georgiyegoriy@gmail.com
+Requires-Python: >=3.6
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
