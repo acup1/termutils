@@ -65,6 +65,7 @@ typedef struct cell cell;
 
 // EXTERNS
 extern int ROWS, COLS;
+extern int CURSOR;
 extern mouse MOUSE;
 
 // FUNCS
@@ -117,6 +118,8 @@ typedef struct window *window_p;
 
 // funcs
 window_p new_window(int layer);
+void del_window(window_p win);
+void del_all_windows();
 void wposwchar(window_p win, int y, int x, wchar_t c);
 void wclear(window_p win);
 void wtogglefullscreen(window_p win);

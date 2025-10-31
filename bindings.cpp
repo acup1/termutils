@@ -59,15 +59,15 @@ extern "C" {
 // }
 
 // Класс-обёртка для window
-class PyWindow {
+class Window {
 public:
   window_p _win;
 
-  PyWindow(int layer) : _win(new_window(layer)) {}
+  Window(int layer) : _win(new_window(layer)) {}
 
-  ~PyWindow() {
+  ~Window() {
     if (_win) {
-      // delete_window(_win);
+      del_window(_win);
       _win = nullptr;
     }
   }
@@ -146,12 +146,10 @@ public:
       _win->clickable = v;
   }
 
-  // Runtime свойства (только чтение, обновляются в render)
   bool get_clicked() const { return _win ? _win->clicked : false; }
   int get_clicked_x() const { return _win ? _win->clicked_x : 0; }
   int get_clicked_y() const { return _win ? _win->clicked_y : 0; }
 
-  // Методы
   void pos_wchar(int y, int x, const std::string &c) {
     if (!_win || c.empty())
       return;
@@ -170,7 +168,6 @@ public:
 PYBIND11_MODULE(termutils, m) {
   m.doc() = "termutils";
 
-  // Константы цветов
   m.attr("FG_BLACK") = py::str(FG_BLACK);
   m.attr("FG_RED") = py::str(FG_RED);
   m.attr("FG_GREEN") = py::str(FG_GREEN);
@@ -189,7 +186,6 @@ PYBIND11_MODULE(termutils, m) {
   m.attr("BG_WHITE") = py::str(BG_WHITE);
   m.attr("RESET_COLOR") = py::str(RESET_COLOR);
 
-  // Константы клавиш
   m.attr("KEY_LEFT") = py::int_(KEY_LEFT);
   m.attr("KEY_RIGHT") = py::int_(KEY_RIGHT);
   m.attr("KEY_UP") = py::int_(KEY_UP);
@@ -197,7 +193,6 @@ PYBIND11_MODULE(termutils, m) {
   m.attr("MOUSE_EVENT") = py::int_(MOUSE_EVENT);
   m.attr("KEY_FAIL") = py::int_(KEY_FAIL);
 
-  // Enum MouseEvent
   py::enum_<mouse_event>(m, "MouseEvent")
       .value("IDLE", IDLE)
       .value("LEFT", LEFT)
@@ -210,14 +205,12 @@ PYBIND11_MODULE(termutils, m) {
       .value("WHEEL_DOWN", WHEEL_DOWN)
       .export_values();
 
-  // Struct Mouse
   py::class_<mouse>(m, "Mouse")
       .def_readwrite("x", &mouse::x)
       .def_readwrite("y", &mouse::y)
       .def_readwrite("event", &mouse::event)
       .def(py::init<>());
 
-  // Struct Cell (color не используется в коде, но экспонирую)
   py::class_<cell>(m, "Cell")
       .def_readwrite("sym", &cell::sym)
       .def_readwrite("color", &cell::color)
@@ -225,18 +218,15 @@ PYBIND11_MODULE(termutils, m) {
       .def_readwrite("y", &cell::y)
       .def(py::init<>());
 
-  // Глобальные переменные (через функции)
-  m.def("get_rows", []() { return ROWS; });
-  m.def("set_rows", [](int v) { ROWS = v; });
-  m.def("get_cols", []() { return COLS; });
-  m.def("set_cols", [](int v) { COLS = v; });
-  m.def("get_mouse",
-        []() { return mouse{MOUSE.x, MOUSE.y, MOUSE.event}; }); // Копия
+  m.def("ROWS", []() { return ROWS; }, "height of  terminal");
+  m.def("COLS", []() { return COLS; }, "width of terminal");
+  // m.attr("ROWS") = ROWS;
+  // m.attr("COLS") = COLS;
+  m.def("get_mouse", []() { return mouse{MOUSE.x, MOUSE.y, MOUSE.event}; });
 
-  // Функции
   m.def("init", &init);
-  m.def("restore", &restore); // С exit(0)
-  // m.def("restore_no_exit", &restore_no_exit);
+  m.def("restore", &restore);
+  m.def("dell_windows", &del_all_windows);
   m.def("refresh", &refresh);
   m.def("get_size", []() {
     int h = 0, w = 0;
@@ -265,31 +255,30 @@ PYBIND11_MODULE(termutils, m) {
   m.def("disable_mouse", &disable_mouse);
   m.def("render_windows", &render_windows);
 
-  // Класс Window
-  py::class_<PyWindow>(m, "Window")
+  py::class_<Window>(m, "Window")
       .def(py::init<int>())
-      .def_property_readonly("id", &PyWindow::get_id)
-      .def_property("name", &PyWindow::get_name, &PyWindow::set_name)
-      .def_property("x", &PyWindow::get_x, &PyWindow::set_x)
-      .def_property("y", &PyWindow::get_y, &PyWindow::set_y)
-      .def_property("width", &PyWindow::get_width, &PyWindow::set_width)
-      .def_property("height", &PyWindow::get_height, &PyWindow::set_height)
-      .def_property("always_on_screen", &PyWindow::get_always_on_screen,
-                    &PyWindow::set_always_on_screen)
-      .def_property("fullscreen", &PyWindow::get_fullscreen,
-                    &PyWindow::set_fullscreen)
-      .def_property("layer", &PyWindow::get_layer, &PyWindow::set_layer)
-      .def_property("border", &PyWindow::get_border, &PyWindow::set_border)
-      .def_property("filling", &PyWindow::get_filling, &PyWindow::set_filling)
-      .def_property("visible", &PyWindow::get_visible, &PyWindow::set_visible)
-      .def_property("dragable", &PyWindow::get_dragable,
-                    &PyWindow::set_dragable)
-      .def_property("clickable", &PyWindow::get_clickable,
-                    &PyWindow::set_clickable)
-      .def("get_clicked", &PyWindow::get_clicked)
-      .def("get_clicked_x", &PyWindow::get_clicked_x)
-      .def("get_clicked_y", &PyWindow::get_clicked_y)
-      .def("pos_wchar", &PyWindow::pos_wchar)
-      .def("clear", &PyWindow::clear)
-      .def("toggle_fullscreen", &PyWindow::toggle_fullscreen);
+      .def_property_readonly("id", &Window::get_id)
+      .def_property("name", &Window::get_name, &Window::set_name)
+      .def_property("x", &Window::get_x, &Window::set_x)
+      .def_property("y", &Window::get_y, &Window::set_y)
+      .def_property("width", &Window::get_width, &Window::set_width)
+      .def_property("height", &Window::get_height, &Window::set_height)
+      .def_property("always_on_screen", &Window::get_always_on_screen,
+                    &Window::set_always_on_screen)
+      .def_property("fullscreen", &Window::get_fullscreen,
+                    &Window::set_fullscreen)
+      .def_property("layer", &Window::get_layer, &Window::set_layer)
+      .def_property("border", &Window::get_border, &Window::set_border)
+      .def_property("filling", &Window::get_filling, &Window::set_filling)
+      .def_property("visible", &Window::get_visible, &Window::set_visible)
+      .def_property("dragable", &Window::get_dragable, &Window::set_dragable)
+
+      .def_property("clickable", &Window::get_clickable, &Window::set_clickable)
+      .def_property_readonly("clicked", &Window::get_clicked)
+      .def_property_readonly("clicked_x", &Window::get_clicked_x)
+      .def_property_readonly("clicked_y", &Window::get_clicked_y)
+
+      .def("pos_wchar", &Window::pos_wchar)
+      .def("clear", &Window::clear)
+      .def("toggle_fullscreen", &Window::toggle_fullscreen);
 }

@@ -45,8 +45,8 @@ class pallete(tu.Window):
 
     def get_color(self, paint_bg, paint_fg):
         color = [paint_bg, paint_fg].copy()
-        if self.get_clicked():
-            x = self.get_clicked_x()
+        if self.clicked:
+            x = self.clicked_x
             if x < len(self.colors[0]) * 2:
                 color[x // len(self.colors[0])] = self.colors[x // len(self.colors[0])][
                     x % len(self.colors[0])
@@ -97,7 +97,6 @@ try:
         print(tu.RESET_COLOR)
         tu.render_windows()
         tu.poswchar(0, 0, "")
-        tu.refresh()
         paint_bg, paint_fg = pallete_ins.get_color(paint_bg, paint_fg)
 
 except Exception as e:

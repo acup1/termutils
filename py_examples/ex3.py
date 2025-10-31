@@ -11,14 +11,12 @@ a.visible = 1
 a.name = "qwe"
 a.pos_wchar(0, 0, "1")
 
-tu.poswchar(0, 0, "")
+# tu.poswchar(0, 0, "")
 # tu.clear()
 # tu.render_windows()
-tu.refresh()
 
 while tu.getch(10, 1) != ord("q"):
     tu.clear()
     tu.render_windows()
-    tu.refresh()
 
 tu.restore()

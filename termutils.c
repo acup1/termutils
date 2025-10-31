@@ -12,11 +12,12 @@
 #include <wchar.h>
 
 static struct termios original, changed;
-// static int winmode = 0;
+
 static int wincount = 0;
 window **windows;
 
 int ROWS, COLS;
+int CURSOR;
 struct mouse MOUSE;
 
 void init() {
@@ -51,14 +52,7 @@ void restore() {
   printf("\033[?1049l");
   cursset(1);
   tcsetattr(STDIN_FILENO, TCSANOW, &original);
-  for (int i = 0; i < wincount; i++) {
-    wclear(windows[i]);
-    if (windows[i]->name)
-      free(windows[i]->name);
-    free(windows[i]);
-  }
   refresh();
-  exit(0);
 }
 
 void getsize(int *height, int *width) {
@@ -147,6 +141,7 @@ int getch(int timeout, int wait) {
     ret = p;
     break;
   default:
+
     // ret = getchar();
     // if (ret == 27) {
     //   char c1 = getchar();
@@ -173,6 +168,7 @@ int getch(int timeout, int wait) {
     //     printf("%d", c1);
     //   }
     // }
+
     bytes = read(STDIN_FILENO, buf, sizeof(buf) - 1);
     if (bytes > 0) {
       if (bytes >= 6 && buf[0] == 27 && buf[1] == '[' && buf[2] == 'M') {
@@ -318,6 +314,21 @@ window_p new_window(int layer) {
   return win;
 }
 
+void del_window(window_p win) {
+  if (win) {
+    wclear(win);
+    if (win->name)
+      free(win->name);
+    free(win);
+  }
+}
+
+void del_all_windows() {
+  for (int i = 0; i < wincount; i++) {
+    del_window(windows[i]);
+  }
+}
+
 void wposwchar(window_p win, int y, int x, wchar_t c) {
   int draw = 1;
   for (int i = 0; i < win->content_length && draw; i++)
@@ -441,4 +452,5 @@ void render_windows() {
     if (win->updater)
       win->updater(win);
   }
+  refresh();
 }
