@@ -39,6 +39,9 @@ class pallete(tu.Window):
         self.width = len(self.colors[0]) * 2 + 2
         self.height = 3
         self.mouseable = 1
+        self.always_on_screen = 1
+        self.x, self.y = 0, 0
+
         for i, j in enumerate(self.colors[0]):
             self.pos_wchar(0, i, f"{i}")
             self.pos_wchar(0, i + len(self.colors[0]), f"{i}")
@@ -61,8 +64,6 @@ tu.cursset(0)
 
 pallete_ins = pallete()
 
-tu.poswchar(0, 0, "")
-tu.refresh()
 
 c = ""
 sym = "*"
@@ -94,14 +95,11 @@ try:
         elif c == "s":
             sym = chr(tu.getch(-1, 0))
 
-        print(tu.RESET_COLOR)
         tu.render_windows()
-        tu.poswchar(0, 0, "")
         paint_bg, paint_fg = pallete_ins.get_color(paint_bg, paint_fg)
 
 except Exception as e:
     with open("err.txt", "w") as f:
         f.write(f"{e}\n{pallete_ins.get_clicked_x()}")
 
-tu.dell_windows()
 tu.restore()
