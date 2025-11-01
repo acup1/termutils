@@ -3,8 +3,10 @@
 #include <math.h>
 #include <poll.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <time.h>
@@ -288,10 +290,11 @@ window_p new_window(int layer) {
   win->content_offset_x = 0;
   win->content_offset_y = 0;
   win->dragable = 0;
-  win->clickable = 0;
-  win->clicked = 0;
-  win->clicked_x = 0;
-  win->clicked_y = 0;
+  win->mouseable = 0;
+  win->mouse = 0;
+  win->mouse_x = 0;
+  win->mouse_y = 0;
+  win->mouse_event = IDLE;
 
   if (wincount > 0)
     windows = realloc(windows, sizeof(window_p) * (wincount + 1));
@@ -317,9 +320,12 @@ window_p new_window(int layer) {
 void del_window(window_p win) {
   if (win) {
     wclear(win);
-    if (win->name)
+    if (win->name) {
       free(win->name);
+      win->name = NULL;
+    }
     free(win);
+    win = NULL;
   }
 }
 
@@ -327,6 +333,8 @@ void del_all_windows() {
   for (int i = 0; i < wincount; i++) {
     del_window(windows[i]);
   }
+  free(windows);
+  wincount = 0;
 }
 
 void wposwchar(window_p win, int y, int x, wchar_t c) {
@@ -345,13 +353,40 @@ void wposwchar(window_p win, int y, int x, wchar_t c) {
     current_cell->y = y;
     current_cell->x = x;
     current_cell->sym = c;
+
+    // Найти позицию для вставки с сортировкой по y, затем по x
+    int insert_pos = 0;
+    while (insert_pos < win->content_length &&
+           (win->content[insert_pos]->y < y ||
+            (win->content[insert_pos]->y == y &&
+             win->content[insert_pos]->x < x))) {
+      insert_pos++;
+    }
+
+    // Расширить массив
+    cell **new_content;
     if (win->content_length > 0)
-      win->content =
+      new_content =
           realloc(win->content, sizeof(cell *) * (++win->content_length));
-    else
-      win->content = malloc(sizeof(cell *) * (++win->content_length));
-    win->content[win->content_length - 1] = current_cell;
+    else {
+      new_content = malloc(sizeof(cell *) * (++win->content_length));
+      insert_pos = 0; // для пустого массива вставляем в начало
+    }
+    win->content = new_content;
+
+    // Сдвинуть элементы вправо
+    for (int i = win->content_length - 1; i > insert_pos; i--) {
+      win->content[i] = win->content[i - 1];
+    }
+
+    // Вставить новый элемент
+    win->content[insert_pos] = current_cell;
   }
+}
+
+void wposprint(window_p win, int y, int x, char *s) {
+  for (int i = 0; i < strlen(s); i++)
+    wposwchar(win, y, x + i, s[i]);
 }
 
 void wclear(window_p win) {
@@ -390,14 +425,15 @@ void render_windows() {
     window_p win = windows[i];
 
     if (win && win->visible) {
-      if (win->clickable) {
-        win->clicked = 0;
+      if (win->mouseable) {
+        win->mouse = 0;
         if ((MOUSE.event == LEFT || MOUSE.event == SPAM_LEFT) &&
             (win->y <= MOUSE.y && MOUSE.y <= (win->y + win->height - 1)) &&
             (win->x <= MOUSE.x && MOUSE.x <= (win->x + win->width - 1))) {
-          win->clicked = 1;
-          win->clicked_y = MOUSE.y - win->y - 1;
-          win->clicked_x = MOUSE.x - win->x - 1;
+          win->mouse = 1;
+          win->mouse_y = MOUSE.y - win->y - 1;
+          win->mouse_x = MOUSE.x - win->x - 1;
+          win->mouse_event = MOUSE.event;
         }
       }
 
@@ -433,6 +469,7 @@ void render_windows() {
         win->height = ROWS + 3;
       }
 
+      printf(RESET_COLOR);
       if (win->filling)
         for (int i = 0; i < win->height - 2; i++)
           for (int j = 0; j < win->width - 2; j++)
@@ -446,6 +483,7 @@ void render_windows() {
 
       if (win->border != -1)
         box(win->y, win->x, win->height, win->width, win->border);
+
       if (win->name)
         posprint(win->y, win->x + 1, win->name);
     }

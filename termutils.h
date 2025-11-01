@@ -109,7 +109,8 @@ struct window {
   void (*updater)(struct window *);
 
   int dragable, drag, drag_ofset;
-  int clickable, clicked, clicked_x, clicked_y;
+  int mouseable, mouse, mouse_x, mouse_y;
+  enum mouse_event mouse_event;
 };
 
 // typedef
@@ -121,6 +122,7 @@ window_p new_window(int layer);
 void del_window(window_p win);
 void del_all_windows();
 void wposwchar(window_p win, int y, int x, wchar_t c);
+void wposprint(window_p win, int y, int x, char *s);
 void wclear(window_p win);
 void wtogglefullscreen(window_p win);
 void render_windows();

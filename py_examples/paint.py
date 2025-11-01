@@ -38,15 +38,15 @@ class pallete(tu.Window):
         self.name = "palette"
         self.width = len(self.colors[0]) * 2 + 2
         self.height = 3
-        self.clickable = 1
+        self.mouseable = 1
         for i, j in enumerate(self.colors[0]):
             self.pos_wchar(0, i, f"{i}")
             self.pos_wchar(0, i + len(self.colors[0]), f"{i}")
 
     def get_color(self, paint_bg, paint_fg):
-        color = [paint_bg, paint_fg].copy()
-        if self.clicked:
-            x = self.clicked_x
+        color = [paint_bg, paint_fg]
+        if self.mouse and self.mouse_event != tu.IDLE:
+            x = self.mouse_x
             if x < len(self.colors[0]) * 2:
                 color[x // len(self.colors[0])] = self.colors[x // len(self.colors[0])][
                     x % len(self.colors[0])
@@ -103,4 +103,5 @@ except Exception as e:
     with open("err.txt", "w") as f:
         f.write(f"{e}\n{pallete_ins.get_clicked_x()}")
 
+tu.dell_windows()
 tu.restore()

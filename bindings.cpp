@@ -140,20 +140,28 @@ public:
     if (_win)
       _win->dragable = v;
   }
-  int get_clickable() const { return _win ? _win->clickable : 0; }
-  void set_clickable(int v) {
+  int get_mouseable() const { return _win ? _win->mouseable : 0; }
+  void set_mouseable(int v) {
     if (_win)
-      _win->clickable = v;
+      _win->mouseable = v;
   }
 
-  bool get_clicked() const { return _win ? _win->clicked : false; }
-  int get_clicked_x() const { return _win ? _win->clicked_x : 0; }
-  int get_clicked_y() const { return _win ? _win->clicked_y : 0; }
+  bool mouse() const { return _win ? _win->mouse : false; }
+  int mouse_x() const { return _win ? _win->mouse_x : 0; }
+  int mouse_y() const { return _win ? _win->mouse_y : 0; }
+  enum mouse_event mouse_event() const {
+    return _win ? _win->mouse_event : IDLE;
+  }
 
   void pos_wchar(int y, int x, const std::string &c) {
     if (!_win || c.empty())
       return;
     wposwchar(_win, y, x, (wchar_t)strdup(c.c_str())[0]);
+  }
+  void posprint(int y, int x, const std::string &c) {
+    if (!_win || c.empty())
+      return;
+    wposprint(_win, y, x, strdup(c.c_str()));
   }
   void clear() {
     if (_win)
@@ -273,12 +281,14 @@ PYBIND11_MODULE(termutils, m) {
       .def_property("visible", &Window::get_visible, &Window::set_visible)
       .def_property("dragable", &Window::get_dragable, &Window::set_dragable)
 
-      .def_property("clickable", &Window::get_clickable, &Window::set_clickable)
-      .def_property_readonly("clicked", &Window::get_clicked)
-      .def_property_readonly("clicked_x", &Window::get_clicked_x)
-      .def_property_readonly("clicked_y", &Window::get_clicked_y)
+      .def_property("mouseable", &Window::get_mouseable, &Window::set_mouseable)
+      .def_property_readonly("mouse", &Window::mouse)
+      .def_property_readonly("mouse_x", &Window::mouse_x)
+      .def_property_readonly("mouse_y", &Window::mouse_y)
+      .def_property_readonly("mouse_event", &Window::mouse_event)
 
       .def("pos_wchar", &Window::pos_wchar)
+      .def("posprint", &Window::posprint)
       .def("clear", &Window::clear)
       .def("toggle_fullscreen", &Window::toggle_fullscreen);
 }
