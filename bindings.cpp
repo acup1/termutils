@@ -10,54 +10,6 @@ extern "C" {
 #include "termutils.h"
 }
 
-// // Вспомогательная функция для удаления окна (сдвиг массива)
-// void delete_window(window_p win) {
-//   if (!win || wincount == 0)
-//     return;
-//   int id = win->id;
-//   if (id >= wincount || windows[id] != win)
-//     return; // Проверка
-//
-//   wclear(win);
-//   if (win->name)
-//     free(win->name);
-//   free(win);
-//
-//   // Сдвиг массива
-//   for (int j = id; j < wincount - 1; ++j) {
-//     windows[j] = windows[j + 1];
-//     windows[j]->id = j; // Обновить id
-//   }
-//   wincount--;
-//   if (wincount > 0) {
-//     windows = (window **)realloc(windows, sizeof(window_p) * wincount);
-//   } else {
-//     free(windows);
-//     windows = NULL;
-//   }
-// }
-//
-// // restore без exit
-// void restore_no_exit() {
-//   printf(RESET_COLOR);
-//   disable_mouse();
-//   printf("\033[?1049l");
-//   cursset(1);
-//   tcsetattr(STDIN_FILENO, TCSANOW, &original);
-//   for (int i = 0; i < wincount; i++) {
-//     wclear(windows[i]);
-//     if (windows[i]->name)
-//       free(windows[i]->name);
-//     free(windows[i]);
-//   }
-//   wincount = 0;
-//   if (windows) {
-//     free(windows);
-//     windows = NULL;
-//   }
-//   refresh();
-// }
-
 // Класс-обёртка для window
 class Window {
 public:
