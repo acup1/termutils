@@ -19,11 +19,12 @@
           shell = pkgs.zsh;
 
           buildInputs = with pkgs; [
-            # gcc
-            # glibc
-            # glibc.dev
-            # glibc.static
-            libgcc
+            gcc
+            glibc
+            glibc.dev
+            glibc.static
+
+            # libgcc
             lcov
             check
             clang
@@ -39,15 +40,22 @@
           shellHook = ''
             export LD_LIBRARY_PATH=${
               builtins.concatStringsSep ":" [
-                "${pkgs.libgcc}/lib"
+                # "${pkgs.libgcc}/lib"
                 "${pkgs.check}/lib"
+                "${pkgs.glibc.static}/lib"
+                "${pkgs.glibc.dev}/lib"
+                # "${pkgs.glibc}/lib"
               ]
             }:$LD_LIBRARY_PATH
 
             export CPATH=${
               builtins.concatStringsSep ":" [
-                "${pkgs.libgcc}/include"
+                # "${pkgs.libgcc}/include"
                 "${pkgs.check}/include"
+                "${pkgs.glibc.static}/include"
+                "${pkgs.glibc.dev}/include"
+                # "${pkgs.glibc}/include"
+                "./"
               ]
             }:$CPATH
 

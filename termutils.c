@@ -105,7 +105,7 @@ void poswchar(int y, int x, wchar_t c) {
   }
 }
 
-void clear() { printf("\033[2J"); }
+void clear() { printf("\x1b[2J"); }
 
 void refresh() {
   fflush(stdout);

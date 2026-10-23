@@ -1,5 +1,13 @@
-venv/
-build/
-termutils.egg-info/
-*.so
-*.out
+snippets/
+
+
+# Added by cargo
+
+/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target
