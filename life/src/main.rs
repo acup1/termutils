@@ -10,7 +10,7 @@ use termutils::{
     KEY_RIGHT, KEY_UP, MOUSE_EVENT,
 };
 
-const CELL_WIDTH: i32 = 4;
+const CELL_WIDTH: i32 = 3;
 const CELL_HEIGHT: i32 = 2;
 const HEADER_HEIGHT: i32 = 3;
 const MIN_WIDTH: u16 = 30;
@@ -478,7 +478,7 @@ mod tests {
         let point = viewport.mouse_point(
             Point::new(-20, 30),
             Mouse {
-                x: 15,
+                x: 11,
                 y: 8,
                 event: MouseEvent::LEFT,
             },
@@ -494,7 +494,7 @@ mod tests {
         };
         let mut app = App::new(PathBuf::from(DEFAULT_PATH));
         let mut mouse = Mouse {
-            x: 7,
+            x: 5,
             y: 6,
             event: MouseEvent::LEFT,
         };
@@ -509,12 +509,12 @@ mod tests {
     }
 
     #[test]
-    fn live_cells_are_two_rows_by_four_columns() {
+    fn live_cells_are_two_rows_by_three_columns() {
         let mut windows = WindowManager::new();
         let id = add_cell_window(&mut windows, Point::new(6, 9), 2, LIVE_COLOR);
         let window = windows.get(id).unwrap();
         assert_eq!((window.x, window.y), (6, 9));
-        assert_eq!((window.width, window.height), (4, 2));
+        assert_eq!((window.width, window.height), (3, 2));
         assert_eq!(window.border_style, CellStyle::foreground(LIVE_COLOR));
     }
 }

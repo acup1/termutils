@@ -1,7 +1,7 @@
 # Life
 
 Conway's Game of Life on an unbounded field. Every live cell is rendered as a
-separate 2×4 `termutils::Window` (two terminal rows by four columns), which
+separate 2×3 `termutils::Window` (two terminal rows by three columns), which
 looks square with typical terminal fonts. The framebuffer redraws only changed
 terminal cells.
 
