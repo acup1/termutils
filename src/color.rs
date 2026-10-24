@@ -1,7 +1,7 @@
 // #[allow(unused)]
 use std::fmt;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Color {
     Black,
     Red,
@@ -25,9 +25,9 @@ impl From<Color> for u8 {
             Color::Blue => 4,
             Color::Purple => 5,
             Color::Cyan => 6,
-            Color::Grey => 7,
-            Color::White => 8,
-            Color::Reset => 10,
+            Color::White => 7,
+            Color::Grey => 8,
+            Color::Reset => 9,
         }
     }
 }
@@ -41,8 +41,8 @@ impl From<u8> for Color {
             4 => Color::Blue,
             5 => Color::Purple,
             6 => Color::Cyan,
-            7 => Color::Grey,
-            8 => Color::White,
+            7 => Color::White,
+            8 => Color::Grey,
             _ => Color::Reset,
         }
     }
@@ -52,6 +52,7 @@ impl Color {
     pub fn fg(self) -> String {
         match self {
             Color::Reset => "\x1b[0m".to_string(),
+            Color::Grey => "\x1b[90m".to_string(),
             _ => format!("\x1b[{}m", 30 + u8::from(self)),
         }
     }
@@ -59,6 +60,7 @@ impl Color {
     pub fn bg(self) -> String {
         match self {
             Color::Reset => "\x1b[0m".to_string(),
+            Color::Grey => "\x1b[100m".to_string(),
             _ => format!("\x1b[{}m", 40 + u8::from(self)),
         }
     }

@@ -23,6 +23,7 @@ fn rect() -> io::Result<()> {
 }
 
 #[test]
+#[ignore = "requires an interactive terminal"]
 fn primetives_test() -> io::Result<()> {
     rect()?;
     Ok(())

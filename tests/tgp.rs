@@ -1,8 +1,6 @@
 use std::io;
 
 use termutils::{
-    cursor,
-    primetives::Primetive,
     terminal::{self, MouseEvent},
     tgp::ImgData,
 };
@@ -55,6 +53,7 @@ fn img_from_path() -> io::Result<()> {
 }
 
 #[test]
+#[ignore = "requires an interactive terminal with Kitty graphics support"]
 fn tgp_test() -> io::Result<()> {
     img_from_path()?;
     Ok(())

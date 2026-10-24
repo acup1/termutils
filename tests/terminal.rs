@@ -1,8 +1,4 @@
-use std::{
-    io::{self, Bytes},
-    thread,
-    time::Duration,
-};
+use std::io;
 
 use termutils::{
     color::Color,
@@ -106,7 +102,7 @@ fn mouse_test() -> io::Result<()> {
 fn wannasimplicity() -> io::Result<()> {
     let mut t = terminal::Terminal::wannajustwork()?;
     t.refresh()?;
-    t.curset(true);
+    t.curset(true)?;
     loop {
         match t.getch(2) {
             'q' => break,
@@ -148,6 +144,7 @@ fn wannasimplicity() -> io::Result<()> {
 }
 
 #[test]
+#[ignore = "requires an interactive terminal"]
 fn terminal_tests() -> io::Result<()> {
     qexit()?;
     buffer_qexit()?;
