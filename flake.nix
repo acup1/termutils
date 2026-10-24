@@ -33,6 +33,10 @@
             pname = "termutils-paint-example";
             source = ./paint;
           };
+          life = buildExample {
+            pname = "termutils-life-example";
+            source = ./life;
+          };
           default = paint;
         });
 
@@ -44,6 +48,10 @@
         paint = {
           type = "app";
           program = "${self.packages.${system}.paint}/bin/termutils-paint-example";
+        };
+        life = {
+          type = "app";
+          program = "${self.packages.${system}.life}/bin/termutils-life-example";
         };
         default = self.apps.${system}.paint;
       });
