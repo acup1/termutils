@@ -1,0 +1,8 @@
+[package]
+name = "termutils-snake-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+termutils = { git = "https://github.com/acup1/termutils.git", rev = "ec51e452e738ab698f960656ee9a85bb4e314d0b" }
