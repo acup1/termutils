@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 use termutils::{
-    terminal::Terminal, Mouse, MouseEvent, WindowManager, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP,
-    MOUSE_EVENT,
+    terminal::Terminal, CellStyle, Mouse, MouseEvent, Rgb, WindowManager, KEY_DOWN, KEY_LEFT,
+    KEY_RIGHT, KEY_UP, MOUSE_EVENT,
 };
 
 const SEGMENT_WIDTH: i32 = 5;
@@ -14,6 +14,8 @@ const MENU_FRAME_MS: u64 = 50;
 const MENU_WIDTH: i32 = 38;
 const MENU_HEIGHT: i32 = 11;
 const APPLE_GLYPH: char = '\u{e29e}';
+const SNAKE_GREEN: Rgb = Rgb::new(34, 197, 94);
+const APPLE_RED: Rgb = Rgb::new(239, 68, 68);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Difficulty {
@@ -370,16 +372,15 @@ fn render(
         windows
             .get_mut(food_id)
             .expect("food window exists")
-            .poswchar(0, 1, APPLE_GLYPH);
+            .posstyled(0, 1, APPLE_GLYPH, CellStyle::foreground(APPLE_RED));
     }
 
     for (index, point) in game.snake.iter().enumerate().rev() {
         let segment_id = add_square_window(windows, game.grid, *point, 2, i32::from(index != 0));
+        let segment = windows.get_mut(segment_id).expect("segment window exists");
+        segment.border_style = CellStyle::foreground(SNAKE_GREEN);
         if index == 0 {
-            windows
-                .get_mut(segment_id)
-                .expect("head window exists")
-                .posprint(0, 0, "^~^");
+            segment.posprint_styled(0, 0, "^~^", CellStyle::foreground(SNAKE_GREEN));
         }
     }
 

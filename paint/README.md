@@ -17,7 +17,12 @@ nix run .#paint
 ```
 
 The terminal must be at least 80 columns by 24 rows. Left-click or drag to
-paint and right-click the canvas for its context menu. The File menu and the
-`O`/`S` keys open and save the custom text-based `.tpaint` format. Use the
-tool and color panels with the mouse; `P`, `E`, and `F` select Pencil, Eraser,
-and Fill, while `X` swaps foreground and background colors.
+paint; right-drag erases regardless of the selected tool, and middle-click
+opens the canvas context menu. Fast pointer movement is joined into a solid
+stroke. Click either foreground or background to open the HSV color picker;
+the small swatches underneath are recent colors.
+
+The File menu and the `O`/`S` keys open and save the custom text-based
+`.tpaint` format. `P`, `E`, and `F` select Pencil, Eraser, and Fill, while `X`
+swaps foreground and background colors. In the color picker, arrows choose
+saturation/value, `[` and `]` change hue, Enter accepts, and Escape cancels.

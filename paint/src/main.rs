@@ -15,25 +15,11 @@ const DEFAULT_PATH: &str = "drawing.tpaint";
 const FILE_MENU_WIDTH: i32 = 18;
 const CONTEXT_MENU_WIDTH: i32 = 18;
 const SYMBOL_MENU_WIDTH: i32 = 30;
-
-const PALETTE: [Rgb; 16] = [
-    Rgb::new(0, 0, 0),
-    Rgb::new(72, 72, 72),
-    Rgb::new(160, 160, 160),
-    Rgb::new(255, 255, 255),
-    Rgb::new(220, 38, 38),
-    Rgb::new(249, 115, 22),
-    Rgb::new(250, 204, 21),
-    Rgb::new(34, 197, 94),
-    Rgb::new(20, 184, 166),
-    Rgb::new(6, 182, 212),
-    Rgb::new(37, 99, 235),
-    Rgb::new(124, 58, 237),
-    Rgb::new(219, 39, 119),
-    Rgb::new(120, 53, 15),
-    Rgb::new(244, 114, 182),
-    Rgb::new(190, 242, 100),
-];
+const PICKER_WIDTH: i32 = 34;
+const PICKER_HEIGHT: i32 = 17;
+const PICKER_COLUMNS: usize = 13;
+const PICKER_ROWS: usize = 12;
+const HUE_STEPS: usize = 12;
 const SYMBOLS: [char; 12] = ['█', '▓', '▒', '░', '●', '◆', '★', '@', '#', '+', '*', '.'];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -69,6 +55,21 @@ enum ColorTarget {
     Background,
 }
 
+impl ColorTarget {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Foreground => "Foreground",
+            Self::Background => "Background",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StrokeButton {
+    Draw,
+    Erase,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct PaintCell {
     symbol: char,
@@ -101,6 +102,32 @@ impl Canvas {
                 self.cells.remove(&(x, y));
             }
             Tool::Fill => self.fill(x, y, cell),
+        }
+    }
+
+    fn paint_line(&mut self, from: (i32, i32), to: (i32, i32), tool: Tool, cell: PaintCell) {
+        let (mut x, mut y) = from;
+        let (to_x, to_y) = to;
+        let dx = (to_x - x).abs();
+        let step_x = if x < to_x { 1 } else { -1 };
+        let dy = -(to_y - y).abs();
+        let step_y = if y < to_y { 1 } else { -1 };
+        let mut error = dx + dy;
+
+        loop {
+            self.paint(x, y, tool, cell);
+            if (x, y) == (to_x, to_y) {
+                break;
+            }
+            let doubled = 2 * error;
+            if doubled >= dy {
+                error += dy;
+                x += step_x;
+            }
+            if doubled <= dx {
+                error += dx;
+                y += step_y;
+            }
         }
     }
 
@@ -226,6 +253,63 @@ fn parse_rgb(value: Option<&str>, name: &str) -> Result<Rgb, String> {
     ))
 }
 
+fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Rgb {
+    let chroma = value * saturation;
+    let sector = (hue / 60.0).rem_euclid(6.0);
+    let secondary = chroma * (1.0 - (sector.rem_euclid(2.0) - 1.0).abs());
+    let (red, green, blue) = match sector as u8 {
+        0 => (chroma, secondary, 0.0),
+        1 => (secondary, chroma, 0.0),
+        2 => (0.0, chroma, secondary),
+        3 => (0.0, secondary, chroma),
+        4 => (secondary, 0.0, chroma),
+        _ => (chroma, 0.0, secondary),
+    };
+    let offset = value - chroma;
+    Rgb::new(
+        ((red + offset) * 255.0).round() as u8,
+        ((green + offset) * 255.0).round() as u8,
+        ((blue + offset) * 255.0).round() as u8,
+    )
+}
+
+fn rgb_to_hsv(color: Rgb) -> (f32, f32, f32) {
+    let red = f32::from(color.r) / 255.0;
+    let green = f32::from(color.g) / 255.0;
+    let blue = f32::from(color.b) / 255.0;
+    let maximum = red.max(green).max(blue);
+    let minimum = red.min(green).min(blue);
+    let delta = maximum - minimum;
+    let hue = if delta == 0.0 {
+        0.0
+    } else if maximum == red {
+        60.0 * ((green - blue) / delta).rem_euclid(6.0)
+    } else if maximum == green {
+        60.0 * ((blue - red) / delta + 2.0)
+    } else {
+        60.0 * ((red - green) / delta + 4.0)
+    };
+    let saturation = if maximum == 0.0 { 0.0 } else { delta / maximum };
+    (hue, saturation, maximum)
+}
+
+fn picker_color(hue: usize, saturation: usize, value: usize) -> Rgb {
+    hsv_to_rgb(
+        hue as f32 * 360.0 / HUE_STEPS as f32,
+        saturation as f32 / (PICKER_COLUMNS - 1) as f32,
+        1.0 - value as f32 / (PICKER_ROWS - 1) as f32,
+    )
+}
+
+fn picker_indices(color: Rgb) -> (usize, usize, usize) {
+    let (hue, saturation, value) = rgb_to_hsv(color);
+    (
+        ((hue / 360.0 * HUE_STEPS as f32).round() as usize) % HUE_STEPS,
+        (saturation * (PICKER_COLUMNS - 1) as f32).round() as usize,
+        ((1.0 - value) * (PICKER_ROWS - 1) as f32).round() as usize,
+    )
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum FileAction {
     Open,
@@ -280,6 +364,13 @@ enum Overlay {
     SymbolMenu {
         selected: usize,
     },
+    ColorPicker {
+        target: ColorTarget,
+        hue: usize,
+        saturation: usize,
+        value: usize,
+        original: Rgb,
+    },
     PathDialog {
         action: FileAction,
         input: String,
@@ -291,6 +382,9 @@ enum OverlayChoice {
     File(FileAction),
     Context(ContextAction, i32, i32),
     Symbol(usize),
+    PickerSv(usize, usize),
+    PickerHue(usize),
+    PickerAccept,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -315,7 +409,6 @@ struct UiHits {
     foreground: HitBox,
     background: HitBox,
     swap: HitBox,
-    palette: Vec<(HitBox, Rgb)>,
     recent: Vec<(HitBox, Rgb)>,
     canvas: HitBox,
     overlay: Vec<(HitBox, OverlayChoice)>,
@@ -330,6 +423,7 @@ struct App {
     symbol: char,
     recent: VecDeque<Rgb>,
     overlay: Overlay,
+    stroke: Option<(StrokeButton, (i32, i32))>,
     path: String,
     status: String,
 }
@@ -345,8 +439,9 @@ impl Default for App {
             symbol: '█',
             recent: VecDeque::from([Rgb::WHITE, Rgb::BLACK]),
             overlay: Overlay::None,
+            stroke: None,
             path: DEFAULT_PATH.into(),
-            status: "Ready — left-drag paints, right-click opens context menu".into(),
+            status: "Ready — left draws, right erases, middle opens menu".into(),
         }
     }
 }
@@ -361,21 +456,79 @@ impl App {
     }
 
     fn choose_color(&mut self, color: Rgb) {
-        match self.color_target {
-            ColorTarget::Foreground => self.foreground = color,
-            ColorTarget::Background => self.background = color,
-        }
+        self.set_color(self.color_target, color);
         self.recent.retain(|recent| *recent != color);
         self.recent.push_front(color);
         self.recent.truncate(5);
-        self.status = format!(
-            "{} color: {}",
-            match self.color_target {
-                ColorTarget::Foreground => "Foreground",
-                ColorTarget::Background => "Background",
-            },
-            color.hex()
-        );
+        self.status = format!("{} color: {}", self.color_target.name(), color.hex());
+    }
+
+    fn set_color(&mut self, target: ColorTarget, color: Rgb) {
+        match target {
+            ColorTarget::Foreground => self.foreground = color,
+            ColorTarget::Background => self.background = color,
+        }
+    }
+
+    fn open_color_picker(&mut self, target: ColorTarget) {
+        self.color_target = target;
+        let original = match target {
+            ColorTarget::Foreground => self.foreground,
+            ColorTarget::Background => self.background,
+        };
+        let (hue, saturation, value) = picker_indices(original);
+        self.overlay = Overlay::ColorPicker {
+            target,
+            hue,
+            saturation,
+            value,
+            original,
+        };
+    }
+
+    fn update_picker(&mut self, hue: usize, saturation: usize, value: usize) {
+        let target = match &self.overlay {
+            Overlay::ColorPicker { target, .. } => *target,
+            _ => return,
+        };
+        self.set_color(target, picker_color(hue, saturation, value));
+        if let Overlay::ColorPicker {
+            hue: picker_hue,
+            saturation: picker_saturation,
+            value: picker_value,
+            ..
+        } = &mut self.overlay
+        {
+            *picker_hue = hue;
+            *picker_saturation = saturation;
+            *picker_value = value;
+        }
+    }
+
+    fn accept_picker(&mut self) {
+        let (target, color) = match &self.overlay {
+            Overlay::ColorPicker {
+                target,
+                hue,
+                saturation,
+                value,
+                ..
+            } => (*target, picker_color(*hue, *saturation, *value)),
+            _ => return,
+        };
+        self.color_target = target;
+        self.choose_color(color);
+        self.overlay = Overlay::None;
+    }
+
+    fn cancel_picker(&mut self) {
+        if let Overlay::ColorPicker {
+            target, original, ..
+        } = &self.overlay
+        {
+            self.set_color(*target, *original);
+        }
+        self.overlay = Overlay::None;
     }
 
     fn swap_colors(&mut self) {
@@ -450,6 +603,14 @@ fn add_swatch(window: &mut Window, y: i32, x: i32, color: Rgb) {
     window.posprint_styled(y, x, "  ", CellStyle::background(color));
 }
 
+fn contrast_color(color: Rgb) -> Rgb {
+    if u32::from(color.r) * 299 + u32::from(color.g) * 587 + u32::from(color.b) * 114 > 127_500 {
+        Rgb::BLACK
+    } else {
+        Rgb::WHITE
+    }
+}
+
 fn render(
     terminal: &mut Terminal,
     windows: &mut WindowManager,
@@ -481,12 +642,10 @@ fn render(
     windows.get_mut(body_id).expect("body exists").visible = false;
 
     let screen = Rect::from_terminal(height, width);
-    let rows = Layout::vertical([14, 72, 14])
-        .gap(1)
+    let rows = Layout::vertical([13, 74, 13])
         .apply(screen, windows, &[menu_id, body_id, status_id])
         .map_err(layout_error)?;
-    let columns = Layout::horizontal([20, 60, 20])
-        .gap(1)
+    let columns = Layout::horizontal([15, 67, 18])
         .apply(rows[1], windows, &[tools_id, canvas_id, colors_id])
         .map_err(layout_error)?;
     let menu_rect = rows[0];
@@ -514,21 +673,17 @@ fn render(
         ..UiHits::default()
     };
     for (index, tool) in Tool::ALL.into_iter().enumerate() {
-        let y = 1 + index as i32 * 2;
+        let y = index as i32;
         let marker = if app.tool == tool { '>' } else { ' ' };
-        tools.posprint(
-            y,
-            1,
-            format!("{marker} [{}] {}", tool.shortcut(), tool.name()),
-        );
+        tools.posprint(y, 0, format!("{marker}{} {}", tool.shortcut(), tool.name()));
         hits.tools.push((
             content_hit(tools_rect, 0, y, (tools_rect.width - 2).max(0), 1),
             tool,
         ));
     }
-    tools.posprint(8, 1, "Mouse:");
-    tools.posprint(9, 1, "left  paint");
-    tools.posprint(10, 1, "right menu");
+    tools.posprint(4, 0, "L draw");
+    tools.posprint(5, 0, "R erase");
+    tools.posprint(6, 0, "M menu");
 
     let canvas = windows.get_mut(canvas_id).expect("canvas exists");
     configure_window(canvas, "Canvas");
@@ -561,26 +716,17 @@ fn render(
     add_swatch(colors, 0, 4, app.foreground);
     colors.posprint(1, 0, format!("{bg_marker}BG"));
     add_swatch(colors, 1, 4, app.background);
-    colors.posprint(2, 0, "[X] swap");
+    colors.posprint(2, 0, "[X] Swap");
     hits.foreground = content_hit(colors_rect, 0, 0, (colors_rect.width - 2).max(0), 1);
     hits.background = content_hit(colors_rect, 0, 1, (colors_rect.width - 2).max(0), 1);
     hits.swap = content_hit(colors_rect, 0, 2, 9, 1);
 
-    colors.posprint(4, 0, "Palette");
-    let palette_columns = 4;
-    for (index, color) in PALETTE.into_iter().enumerate() {
-        let x = (index % palette_columns) as i32 * 3;
-        let y = 5 + (index / palette_columns) as i32;
-        add_swatch(colors, y, x, color);
-        hits.palette
-            .push((content_hit(colors_rect, x, y, 2, 1), color));
-    }
-    colors.posprint(10, 0, "Recent");
+    colors.posprint(4, 0, "Recent");
     for (index, color) in app.recent.iter().copied().enumerate() {
-        let x = index as i32 * 3;
-        add_swatch(colors, 11, x, color);
+        let x = index as i32 * 2;
+        add_swatch(colors, 5, x, color);
         hits.recent
-            .push((content_hit(colors_rect, x, 11, 2, 1), color));
+            .push((content_hit(colors_rect, x, 5, 2, 1), color));
     }
 
     let status = windows.get_mut(status_id).expect("status exists");
@@ -672,6 +818,72 @@ fn render_overlay(
                     .push((content_hit(rect, x, y, 3, 1), OverlayChoice::Symbol(index)));
             }
         }
+        Overlay::ColorPicker {
+            target,
+            hue,
+            saturation,
+            value,
+            ..
+        } => {
+            let rect = popup_rect(
+                screen,
+                (screen.width - PICKER_WIDTH) / 2,
+                (screen.height - PICKER_HEIGHT) / 2,
+                PICKER_WIDTH,
+                PICKER_HEIGHT,
+            );
+            let id = windows.new_window(110);
+            let window = windows.get_mut(id).expect("picker exists");
+            window.set_rect(rect);
+            configure_window(window, "Color picker");
+            let chosen = picker_color(*hue, *saturation, *value);
+            window.posprint(0, 1, format!("{}  #{}", target.name(), rgb_hex(chosen)));
+
+            for row in 0..PICKER_ROWS {
+                for column in 0..PICKER_COLUMNS {
+                    let color = picker_color(*hue, column, row);
+                    let x = 1 + column as i32 * 2;
+                    let y = 1 + row as i32;
+                    add_swatch(window, y, x, color);
+                    if column == *saturation && row == *value {
+                        window.posstyled(
+                            y,
+                            x,
+                            '◆',
+                            CellStyle::new(Some(contrast_color(color)), Some(color)),
+                        );
+                    }
+                    hits.overlay.push((
+                        content_hit(rect, x, y, 2, 1),
+                        OverlayChoice::PickerSv(column, row),
+                    ));
+                }
+            }
+
+            for step in 0..HUE_STEPS {
+                let color = picker_color(step, PICKER_COLUMNS - 1, 0);
+                let y = 1 + step as i32;
+                add_swatch(window, y, 29, color);
+                if step == *hue {
+                    window.posstyled(
+                        y,
+                        29,
+                        '◆',
+                        CellStyle::new(Some(contrast_color(color)), Some(color)),
+                    );
+                }
+                hits.overlay.push((
+                    content_hit(rect, 29, y, 2, 1),
+                    OverlayChoice::PickerHue(step),
+                ));
+            }
+            let action_y = PICKER_ROWS as i32 + 2;
+            window.posprint(action_y, 1, "[ OK ]   Esc cancel");
+            hits.overlay.push((
+                content_hit(rect, 1, action_y, 6, 1),
+                OverlayChoice::PickerAccept,
+            ));
+        }
         Overlay::PathDialog { action, input } => {
             let rect = popup_rect(
                 screen,
@@ -702,7 +914,35 @@ fn mouse_canvas_point(hits: &UiHits, mouse: Mouse) -> Option<(i32, i32)> {
 }
 
 fn handle_mouse(app: &mut App, hits: &UiHits, mouse: Mouse) {
-    if mouse.event == MouseEvent::RIGHT {
+    if mouse.event == MouseEvent::IDLE {
+        app.stroke = None;
+        return;
+    }
+
+    if !matches!(app.overlay, Overlay::None) {
+        app.stroke = None;
+        if matches!(mouse.event, MouseEvent::LEFT | MouseEvent::SPAMLEFT) {
+            if let Some(choice) = hits
+                .overlay
+                .iter()
+                .find_map(|(hit, choice)| hit.contains(mouse).then_some(*choice))
+            {
+                activate_overlay_choice(app, choice);
+            } else if mouse.event == MouseEvent::LEFT
+                && !matches!(app.overlay, Overlay::PathDialog { .. })
+            {
+                if matches!(app.overlay, Overlay::ColorPicker { .. }) {
+                    app.cancel_picker();
+                } else {
+                    app.overlay = Overlay::None;
+                }
+            }
+        }
+        return;
+    }
+
+    if mouse.event == MouseEvent::MIDDLE {
+        app.stroke = None;
         if let Some((canvas_x, canvas_y)) = mouse_canvas_point(hits, mouse) {
             app.overlay = Overlay::ContextMenu {
                 x: i32::from(mouse.x),
@@ -714,26 +954,36 @@ fn handle_mouse(app: &mut App, hits: &UiHits, mouse: Mouse) {
         }
         return;
     }
-    if !matches!(mouse.event, MouseEvent::LEFT | MouseEvent::SPAMLEFT) {
+
+    if !matches!(
+        mouse.event,
+        MouseEvent::LEFT | MouseEvent::SPAMLEFT | MouseEvent::RIGHT | MouseEvent::SPAMRIGHT
+    ) {
+        app.stroke = None;
         return;
     }
 
-    if mouse.event == MouseEvent::LEFT && !matches!(app.overlay, Overlay::None) {
-        if let Some(choice) = hits
-            .overlay
-            .iter()
-            .find_map(|(hit, choice)| hit.contains(mouse).then_some(*choice))
-        {
-            activate_overlay_choice(app, choice);
-        } else if !matches!(app.overlay, Overlay::PathDialog { .. }) {
-            app.overlay = Overlay::None;
+    if matches!(mouse.event, MouseEvent::RIGHT | MouseEvent::SPAMRIGHT) {
+        if let Some(point) = mouse_canvas_point(hits, mouse) {
+            let from = match app.stroke {
+                Some((StrokeButton::Erase, previous)) => previous,
+                _ => point,
+            };
+            let cell = app.selected_cell();
+            app.canvas.paint_line(from, point, Tool::Eraser, cell);
+            app.stroke = Some((StrokeButton::Erase, point));
+            app.status = "Erasing with right mouse button".into();
+        } else {
+            app.stroke = None;
         }
         return;
     }
 
     if mouse.event == MouseEvent::LEFT && hits.file_button.contains(mouse) {
+        app.stroke = None;
         app.overlay = Overlay::FileMenu { selected: 0 };
     } else if mouse.event == MouseEvent::LEFT && hits.symbol_button.contains(mouse) {
+        app.stroke = None;
         let selected = SYMBOLS
             .iter()
             .position(|symbol| *symbol == app.symbol)
@@ -744,23 +994,42 @@ fn handle_mouse(app: &mut App, hits: &UiHits, mouse: Mouse) {
         .iter()
         .find_map(|(hit, tool)| hit.contains(mouse).then_some(*tool))
     {
+        app.stroke = None;
         app.tool = tool;
         app.status = format!("{} selected", tool.name());
     } else if hits.foreground.contains(mouse) {
-        app.color_target = ColorTarget::Foreground;
+        app.stroke = None;
+        app.open_color_picker(ColorTarget::Foreground);
     } else if hits.background.contains(mouse) {
-        app.color_target = ColorTarget::Background;
+        app.stroke = None;
+        app.open_color_picker(ColorTarget::Background);
     } else if hits.swap.contains(mouse) {
+        app.stroke = None;
         app.swap_colors();
     } else if let Some(color) = hits
-        .palette
+        .recent
         .iter()
-        .chain(hits.recent.iter())
         .find_map(|(hit, color)| hit.contains(mouse).then_some(*color))
     {
+        app.stroke = None;
         app.choose_color(color);
-    } else if let Some((x, y)) = mouse_canvas_point(hits, mouse) {
-        app.canvas.paint(x, y, app.tool, app.selected_cell());
+    } else if let Some(point) = mouse_canvas_point(hits, mouse) {
+        let cell = app.selected_cell();
+        if app.tool == Tool::Fill {
+            if mouse.event == MouseEvent::LEFT {
+                app.canvas.paint(point.0, point.1, Tool::Fill, cell);
+            }
+            app.stroke = None;
+        } else {
+            let from = match app.stroke {
+                Some((StrokeButton::Draw, previous)) => previous,
+                _ => point,
+            };
+            app.canvas.paint_line(from, point, app.tool, cell);
+            app.stroke = Some((StrokeButton::Draw, point));
+        }
+    } else {
+        app.stroke = None;
     }
 }
 
@@ -773,6 +1042,20 @@ fn activate_overlay_choice(app: &mut App, choice: OverlayChoice) {
             app.status = format!("Drawing symbol: {}", app.symbol);
             app.overlay = Overlay::None;
         }
+        OverlayChoice::PickerSv(saturation, value) => {
+            if let Overlay::ColorPicker { hue, .. } = &app.overlay {
+                app.update_picker(*hue, saturation, value);
+            }
+        }
+        OverlayChoice::PickerHue(hue) => {
+            if let Overlay::ColorPicker {
+                saturation, value, ..
+            } = &app.overlay
+            {
+                app.update_picker(hue, *saturation, *value);
+            }
+        }
+        OverlayChoice::PickerAccept => app.accept_picker(),
     }
 }
 
@@ -870,6 +1153,22 @@ fn handle_key(app: &mut App, key: i32) -> bool {
             27 => app.overlay = Overlay::None,
             _ => {}
         },
+        Overlay::ColorPicker {
+            hue,
+            saturation,
+            value,
+            ..
+        } => match key {
+            KEY_LEFT => app.update_picker(hue, saturation.saturating_sub(1), value),
+            KEY_RIGHT => app.update_picker(hue, (saturation + 1).min(PICKER_COLUMNS - 1), value),
+            KEY_UP => app.update_picker(hue, saturation, value.saturating_sub(1)),
+            KEY_DOWN => app.update_picker(hue, saturation, (value + 1).min(PICKER_ROWS - 1)),
+            91 => app.update_picker((hue + HUE_STEPS - 1) % HUE_STEPS, saturation, value),
+            93 => app.update_picker((hue + 1) % HUE_STEPS, saturation, value),
+            10 | 13 => app.accept_picker(),
+            27 => app.cancel_picker(),
+            _ => {}
+        },
         Overlay::None => match key {
             113 | 81 => return false,
             111 | 79 => app.begin_file_action(FileAction::Open),
@@ -938,6 +1237,72 @@ mod tests {
         canvas.paint(1, 1, Tool::Pencil, painted);
         canvas.paint(1, 1, Tool::Eraser, painted);
         assert!(canvas.cells.is_empty());
+    }
+
+    #[test]
+    fn fast_pointer_motion_produces_a_continuous_line() {
+        let mut canvas = Canvas::default();
+        canvas.resize(8, 5);
+        let painted = cell('#', Rgb::WHITE, Rgb::BLACK);
+        canvas.paint_line((0, 0), (7, 3), Tool::Pencil, painted);
+
+        assert_eq!(canvas.cells.len(), 8);
+        for x in 0..8 {
+            assert!(canvas.cells.keys().any(|(painted_x, _)| *painted_x == x));
+        }
+    }
+
+    #[test]
+    fn right_mouse_erases_without_switching_the_selected_tool() {
+        let mut app = App::default();
+        app.canvas.resize(5, 2);
+        let painted = app.selected_cell();
+        app.canvas.paint(2, 0, Tool::Pencil, painted);
+        let hits = UiHits {
+            canvas: HitBox(Rect::new(10, 10, 5, 2)),
+            ..UiHits::default()
+        };
+
+        handle_mouse(
+            &mut app,
+            &hits,
+            Mouse {
+                x: 12,
+                y: 10,
+                event: MouseEvent::RIGHT,
+            },
+        );
+
+        assert!(app.canvas.cells.is_empty());
+        assert_eq!(app.tool, Tool::Pencil);
+    }
+
+    #[test]
+    fn middle_mouse_opens_the_canvas_context_menu() {
+        let mut app = App::default();
+        let hits = UiHits {
+            canvas: HitBox(Rect::new(10, 10, 5, 2)),
+            ..UiHits::default()
+        };
+
+        handle_mouse(
+            &mut app,
+            &hits,
+            Mouse {
+                x: 12,
+                y: 11,
+                event: MouseEvent::MIDDLE,
+            },
+        );
+
+        assert!(matches!(
+            app.overlay,
+            Overlay::ContextMenu {
+                canvas_x: 2,
+                canvas_y: 1,
+                ..
+            }
+        ));
     }
 
     #[test]
