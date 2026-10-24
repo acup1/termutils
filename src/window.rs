@@ -1,3 +1,4 @@
+use crate::framebuffer::{FrameBuffer, PresentStats};
 use crate::terminal::{Mouse, MouseEvent, Terminal};
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -187,6 +188,7 @@ fn contains(window: &Window, mouse: Mouse) -> bool {
 pub struct WindowManager {
     windows: Vec<Window>,
     next_id: WindowId,
+    framebuffer: FrameBuffer,
 }
 
 impl WindowManager {
@@ -228,19 +230,36 @@ impl WindowManager {
         self.windows.is_empty()
     }
 
+    pub fn framebuffer(&self) -> &FrameBuffer {
+        &self.framebuffer
+    }
+
+    /// Forces the next render to repaint the complete terminal.
+    ///
+    /// Call this after writing directly to the terminal or clearing it outside
+    /// of this manager.
+    pub fn invalidate(&mut self) {
+        self.framebuffer.invalidate();
+    }
+
     fn sort_layers(&mut self) {
         self.windows.sort_by_key(|window| window.layer);
     }
 
     pub fn render_windows(&mut self, terminal: &mut Terminal) -> io::Result<()> {
+        self.render_windows_with_stats(terminal).map(|_| ())
+    }
+
+    pub fn render_windows_with_stats(
+        &mut self,
+        terminal: &mut Terminal,
+    ) -> io::Result<PresentStats> {
+        let (screen_height, screen_width) = terminal.getsize();
         let mouse = terminal.getmouse();
-        self.render_to(
-            terminal.height,
-            terminal.width,
-            mouse,
-            &mut terminal.stdout,
-        )?;
-        terminal.refresh()
+        let stats =
+            self.render_to_with_stats(screen_height, screen_width, mouse, &mut terminal.stdout)?;
+        terminal.refresh()?;
+        Ok(stats)
     }
 
     pub fn render_to(
@@ -250,7 +269,20 @@ impl WindowManager {
         mouse: Mouse,
         writer: &mut impl Write,
     ) -> io::Result<()> {
+        self.render_to_with_stats(screen_height, screen_width, mouse, writer)
+            .map(|_| ())
+    }
+
+    pub fn render_to_with_stats(
+        &mut self,
+        screen_height: u16,
+        screen_width: u16,
+        mouse: Mouse,
+        writer: &mut impl Write,
+    ) -> io::Result<PresentStats> {
         self.sort_layers();
+        self.framebuffer.resize(screen_width, screen_height);
+        self.framebuffer.begin_frame();
         for window in &mut self.windows {
             window.update_interaction(mouse);
             if window.fullscreen {
@@ -259,157 +291,63 @@ impl WindowManager {
                 window.clamp_to_screen(screen_height, screen_width);
             }
             if window.visible {
-                render_window(window, screen_height, screen_width, writer)?;
+                render_window(window, &mut self.framebuffer);
             }
             window.run_updater();
         }
-        writer.flush()
+        self.framebuffer.present(writer)
     }
 }
 
-fn render_window(
-    window: &Window,
-    screen_height: u16,
-    screen_width: u16,
-    writer: &mut impl Write,
-) -> io::Result<()> {
-    writer.write_all(b"\x1b[0m")?;
+fn render_window(window: &Window, framebuffer: &mut FrameBuffer) {
     if window.filling && window.width > 2 && window.height > 2 {
         for row in 0..window.height - 2 {
             for column in 0..window.width - 2 {
-                write_at(
-                    writer,
-                    screen_height,
-                    screen_width,
-                    window.y + row + 1,
-                    window.x + column + 1,
-                    " ",
-                )?;
+                framebuffer.put(window.y + row + 1, window.x + column + 1, ' ');
             }
         }
     }
     for cell in window.cells() {
-        if cell.y >= 0
-            && cell.x >= 0
-            && cell.y < window.height - 2
-            && cell.x < window.width - 2
-        {
-            let mut encoded = [0; 4];
-            write_at(
-                writer,
-                screen_height,
-                screen_width,
-                window.y + cell.y + 1,
-                window.x + cell.x + 1,
-                cell.sym.encode_utf8(&mut encoded),
-            )?;
+        if cell.y >= 0 && cell.x >= 0 && cell.y < window.height - 2 && cell.x < window.width - 2 {
+            framebuffer.put(window.y + cell.y + 1, window.x + cell.x + 1, cell.sym);
         }
     }
     if window.border != -1 {
-        write_box(
-            writer,
-            screen_height,
-            screen_width,
+        draw_box(
+            framebuffer,
             window.y,
             window.x,
             window.height,
             window.width,
             window.border != 0,
-        )?;
+        );
     }
     if let Some(name) = &window.name {
-        write_at(
-            writer,
-            screen_height,
-            screen_width,
-            window.y,
-            window.x + 1,
-            name,
-        )?;
+        framebuffer.put_text(window.y, window.x + 1, name);
     }
-    Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-fn write_box(
-    writer: &mut impl Write,
-    screen_height: u16,
-    screen_width: u16,
-    y: i32,
-    x: i32,
-    height: i32,
-    width: i32,
-    square: bool,
-) -> io::Result<()> {
+fn draw_box(framebuffer: &mut FrameBuffer, y: i32, x: i32, height: i32, width: i32, square: bool) {
     if height < 2 || width < 2 {
-        return Ok(());
+        return;
     }
     let (top_left, top_right, bottom_left, bottom_right) = if square {
-        ("┌", "┐", "└", "┘")
+        ('┌', '┐', '└', '┘')
     } else {
-        ("╭", "╮", "╰", "╯")
+        ('╭', '╮', '╰', '╯')
     };
     for column in 1..width - 1 {
-        write_at(writer, screen_height, screen_width, y, x + column, "─")?;
-        write_at(
-            writer,
-            screen_height,
-            screen_width,
-            y + height - 1,
-            x + column,
-            "─",
-        )?;
+        framebuffer.put(y, x + column, '─');
+        framebuffer.put(y + height - 1, x + column, '─');
     }
     for row in 1..height - 1 {
-        write_at(writer, screen_height, screen_width, y + row, x, "│")?;
-        write_at(
-            writer,
-            screen_height,
-            screen_width,
-            y + row,
-            x + width - 1,
-            "│",
-        )?;
+        framebuffer.put(y + row, x, '│');
+        framebuffer.put(y + row, x + width - 1, '│');
     }
-    write_at(writer, screen_height, screen_width, y, x, top_left)?;
-    write_at(
-        writer,
-        screen_height,
-        screen_width,
-        y,
-        x + width - 1,
-        top_right,
-    )?;
-    write_at(
-        writer,
-        screen_height,
-        screen_width,
-        y + height - 1,
-        x,
-        bottom_left,
-    )?;
-    write_at(
-        writer,
-        screen_height,
-        screen_width,
-        y + height - 1,
-        x + width - 1,
-        bottom_right,
-    )
-}
-
-fn write_at(
-    writer: &mut impl Write,
-    screen_height: u16,
-    screen_width: u16,
-    y: i32,
-    x: i32,
-    text: &str,
-) -> io::Result<()> {
-    if y < 0 || x < 0 || y >= i32::from(screen_height) || x >= i32::from(screen_width) {
-        return Ok(());
-    }
-    write!(writer, "\x1b[{};{}H{}", y + 1, x + 1, text)
+    framebuffer.put(y, x, top_left);
+    framebuffer.put(y, x + width - 1, top_right);
+    framebuffer.put(y + height - 1, x, bottom_left);
+    framebuffer.put(y + height - 1, x + width - 1, bottom_right);
 }
 
 #[cfg(test)]
@@ -451,8 +389,8 @@ mod tests {
             window.posprint(0, 0, "ok");
         }
         let mut output = Vec::new();
-        manager
-            .render_to(
+        let stats = manager
+            .render_to_with_stats(
                 20,
                 40,
                 Mouse {
@@ -467,10 +405,45 @@ mod tests {
         assert!(lower.mouse);
         assert!(lower.drag);
         assert_eq!(lower.mouse_x, 0);
-        let output = String::from_utf8(output).unwrap();
-        assert!(output.contains("\x1b[3;4Ho"));
-        assert!(output.contains("\x1b[3;5Hk"));
-        assert!(output.find("lower").unwrap() < output.find("upper").unwrap());
+        assert_eq!(stats.changed_cells, 20 * 40);
+        assert_eq!(stats.cursor_moves, 20);
+        assert_eq!(manager.framebuffer().get(0, 1).unwrap().symbol, 'u');
+        assert_eq!(manager.framebuffer().get(2, 3).unwrap().symbol, ' ');
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn manager_emits_only_changed_cells_after_the_first_frame() {
+        let mut manager = WindowManager::new();
+        let id = manager.new_window(0);
+        let window = manager.get_mut(id).unwrap();
+        window.x = 1;
+        window.y = 1;
+        window.width = 5;
+        window.height = 3;
+        window.border = -1;
+        window.filling = false;
+        window.poswchar(0, 0, 'a');
+
+        manager
+            .render_to(5, 10, Mouse::default(), &mut Vec::new())
+            .unwrap();
+
+        let mut unchanged = Vec::new();
+        let stats = manager
+            .render_to_with_stats(5, 10, Mouse::default(), &mut unchanged)
+            .unwrap();
+        assert!(unchanged.is_empty());
+        assert_eq!(stats, PresentStats::default());
+
+        manager.get_mut(id).unwrap().poswchar(0, 0, 'b');
+        let mut changed = Vec::new();
+        let stats = manager
+            .render_to_with_stats(5, 10, Mouse::default(), &mut changed)
+            .unwrap();
+        assert_eq!(String::from_utf8(changed).unwrap(), "\x1b[3;3Hb");
+        assert_eq!(stats.changed_cells, 1);
+        assert_eq!(stats.cursor_moves, 1);
     }
 
     #[test]
@@ -478,8 +451,14 @@ mod tests {
         let mut window = Window::new(0);
         (window.x, window.y, window.width, window.height) = (4, 3, 20, 10);
         window.toggle_fullscreen(24, 80);
-        assert_eq!((window.x, window.y, window.width, window.height), (-1, -1, 83, 27));
+        assert_eq!(
+            (window.x, window.y, window.width, window.height),
+            (-1, -1, 83, 27)
+        );
         window.toggle_fullscreen(24, 80);
-        assert_eq!((window.x, window.y, window.width, window.height), (4, 3, 20, 10));
+        assert_eq!(
+            (window.x, window.y, window.width, window.height),
+            (4, 3, 20, 10)
+        );
     }
 }

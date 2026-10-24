@@ -33,3 +33,16 @@ fn main() -> io::Result<()> {
 `Terminal` restores raw mode, mouse tracking, the cursor, and the alternate
 screen when it is dropped. To read numeric codes for arrows and mouse events,
 use `Terminal::get_key(timeout_ms, wait)`.
+
+## Framebuffer rendering
+
+`WindowManager` composites every layer into a framebuffer. After the first
+frame, it compares the new image with the displayed image and writes only
+changed cells. Adjacent changed cells are emitted as a single run with one
+cursor-position escape sequence.
+
+Do not call `Terminal::clear` between managed frames: removed windows and cells
+are erased by the framebuffer. If code writes directly to the terminal, call
+`WindowManager::invalidate` before the next render. Use
+`render_windows_with_stats` to inspect the number of changed cells and cursor
+moves for a frame.
