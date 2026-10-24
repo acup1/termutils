@@ -1,1 +1,9 @@
-target/
+# Rust build output in the branch root and every example.
+**/target/
+
+# Nix build result links created without --no-link.
+/result
+/result-*
+
+# Local nix-direnv state.
+**/.direnv/
