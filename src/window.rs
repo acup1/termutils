@@ -1,4 +1,5 @@
 use crate::framebuffer::{FrameBuffer, PresentStats};
+use crate::layout::Rect;
 use crate::terminal::{Mouse, MouseEvent, Terminal};
 use std::collections::BTreeMap;
 use std::io::{self, Write};
@@ -97,6 +98,19 @@ impl Window {
 
     pub fn clear(&mut self) {
         self.content.clear();
+    }
+
+    pub fn rect(&self) -> Rect {
+        Rect::new(self.x, self.y, self.width, self.height)
+    }
+
+    pub fn set_rect(&mut self, rect: Rect) {
+        self.x = rect.x;
+        self.y = rect.y;
+        self.width = rect.width;
+        self.height = rect.height;
+        self.fullscreen = false;
+        self.saved_bounds = None;
     }
 
     pub fn cells(&self) -> impl Iterator<Item = &Cell> {
@@ -460,5 +474,14 @@ mod tests {
             (window.x, window.y, window.width, window.height),
             (4, 3, 20, 10)
         );
+    }
+
+    #[test]
+    fn setting_a_layout_rect_leaves_fullscreen_mode() {
+        let mut window = Window::new(0);
+        window.toggle_fullscreen(24, 80);
+        window.set_rect(Rect::new(2, 3, 40, 10));
+        assert!(!window.fullscreen);
+        assert_eq!(window.rect(), Rect::new(2, 3, 40, 10));
     }
 }

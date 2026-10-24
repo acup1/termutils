@@ -46,3 +46,25 @@ are erased by the framebuffer. If code writes directly to the terminal, call
 `WindowManager::invalidate` before the next render. Use
 `render_windows_with_stats` to inspect the number of changed cells and cursor
 moves for a frame.
+
+## Percentage layouts
+
+`Layout` divides any terminal region into percentage-sized rows or columns and
+can assign the resulting rectangles directly to windows. Percentages must total
+100. Margins and gaps are removed before the remaining space is divided.
+
+```rust,no_run
+use termutils::{Layout, Rect, WindowManager};
+
+let mut windows = WindowManager::new();
+let sidebar = windows.new_window(0);
+let content = windows.new_window(0);
+let screen = Rect::from_terminal(24, 80);
+
+let columns = Layout::horizontal([30, 70]).gap(1);
+let regions = columns.apply(screen, &mut windows, &[sidebar, content])?;
+
+// Layouts can be nested by splitting one of the returned regions again.
+let content_rows = Layout::vertical([20, 80]).split(regions[1])?;
+# Ok::<(), termutils::LayoutError>(())
+```
