@@ -16,9 +16,11 @@ const HEADER_HEIGHT: i32 = 3;
 const MIN_WIDTH: u16 = 30;
 const MIN_HEIGHT: u16 = 11;
 const INPUT_FRAME_MS: u64 = 33;
-const GENERATION_MS: u64 = 180;
+const DEFAULT_GENERATION_MS: u64 = 180;
+const MIN_GENERATION_MS: u64 = 30;
+const MAX_GENERATION_MS: u64 = 990;
+const GENERATION_STEP_MS: u64 = 30;
 const DEFAULT_PATH: &str = "life.world";
-const LIVE_COLOR: Rgb = Rgb::new(34, 197, 94);
 const CURSOR_COLOR: Rgb = Rgb::new(250, 204, 21);
 const RANDOM_DENSITY_PERCENT: u64 = 35;
 
@@ -231,6 +233,7 @@ struct App {
     paused: bool,
     path: PathBuf,
     status: String,
+    generation_ms: u64,
     last_generation: Instant,
 }
 
@@ -242,6 +245,7 @@ impl App {
             paused: true,
             path,
             status: "Paused — add cells, then press Space".into(),
+            generation_ms: DEFAULT_GENERATION_MS,
             last_generation: Instant::now(),
         }
     }
@@ -281,10 +285,20 @@ impl App {
     }
 
     fn advance_if_due(&mut self) {
-        if !self.paused && self.last_generation.elapsed() >= Duration::from_millis(GENERATION_MS) {
+        if !self.paused
+            && self.last_generation.elapsed() >= Duration::from_millis(self.generation_ms)
+        {
             self.world.step();
             self.last_generation = Instant::now();
         }
+    }
+
+    fn adjust_delay(&mut self, direction: i64) {
+        self.generation_ms = (self.generation_ms as i64 + direction * GENERATION_STEP_MS as i64)
+            .clamp(MIN_GENERATION_MS as i64, MAX_GENERATION_MS as i64)
+            as u64;
+        self.last_generation = Instant::now();
+        self.status = format!("Generation delay: {} ms", self.generation_ms);
     }
 
     fn randomize(&mut self, viewport: Viewport) {
@@ -300,7 +314,7 @@ fn add_cell_window(
     windows: &mut WindowManager,
     screen: Point,
     layer: i32,
-    color: Rgb,
+    style: CellStyle,
 ) -> termutils::WindowId {
     let id = windows.new_window(layer);
     let window = windows.get_mut(id).expect("new window exists");
@@ -310,7 +324,7 @@ fn add_cell_window(
     window.height = CELL_HEIGHT;
     window.always_on_screen = false;
     window.border = 0;
-    window.border_style = CellStyle::foreground(color);
+    window.border_style = style;
     window.filling = false;
     id
 }
@@ -349,7 +363,7 @@ fn render(
 
     for cell in &app.world.cells {
         if let Some(screen) = viewport.screen_point(app.camera, *cell) {
-            add_cell_window(windows, screen, 2, LIVE_COLOR);
+            add_cell_window(windows, screen, 2, CellStyle::default());
         }
     }
 
@@ -357,7 +371,12 @@ fn render(
     let cursor_screen = viewport
         .screen_point(app.camera, cursor)
         .expect("viewport center is visible");
-    add_cell_window(windows, cursor_screen, 3, CURSOR_COLOR);
+    add_cell_window(
+        windows,
+        cursor_screen,
+        3,
+        CellStyle::foreground(CURSOR_COLOR),
+    );
 
     let header_id = windows.new_window(10);
     let header = windows.get_mut(header_id).expect("header exists");
@@ -372,10 +391,11 @@ fn render(
         0,
         1,
         format!(
-            "{}  gen:{} cells:{}  cam:({}, {}) | Arrows Space N Enter Shift+R S/L C Q | {}",
+            "{}  gen:{} cells:{} delay:{}ms cam:({}, {}) | Arrows Space N Enter Shift+R -/+ S/L C Q | {}",
             if app.paused { "PAUSED" } else { "RUN" },
             app.world.generation,
             app.world.cells.len(),
+            app.generation_ms,
             cursor.x,
             cursor.y,
             app.status
@@ -439,6 +459,8 @@ fn handle_key(app: &mut App, viewport: Option<Viewport>, key: i32) -> bool {
                 app.randomize(viewport);
             }
         }
+        45 => app.adjust_delay(-1),
+        43 => app.adjust_delay(1),
         115 | 83 => app.save(),
         108 | 76 => app.load(),
         99 | 67 => {
@@ -581,12 +603,34 @@ mod tests {
     }
 
     #[test]
-    fn live_cells_are_two_rows_by_three_columns() {
+    fn live_cells_are_two_by_three_windows_in_the_terminal_color() {
         let mut windows = WindowManager::new();
-        let id = add_cell_window(&mut windows, Point::new(6, 9), 2, LIVE_COLOR);
+        let id = add_cell_window(&mut windows, Point::new(6, 9), 2, CellStyle::default());
         let window = windows.get(id).unwrap();
         assert_eq!((window.x, window.y), (6, 9));
         assert_eq!((window.width, window.height), (3, 2));
-        assert_eq!(window.border_style, CellStyle::foreground(LIVE_COLOR));
+        assert_eq!(window.border_style, CellStyle::default());
+    }
+
+    #[test]
+    fn plus_and_minus_adjust_generation_delay_with_limits() {
+        let mut app = App::new(PathBuf::from(DEFAULT_PATH));
+
+        handle_key(&mut app, None, 45);
+        assert_eq!(
+            app.generation_ms,
+            DEFAULT_GENERATION_MS - GENERATION_STEP_MS
+        );
+        handle_key(&mut app, None, 43);
+        assert_eq!(app.generation_ms, DEFAULT_GENERATION_MS);
+
+        for _ in 0..100 {
+            handle_key(&mut app, None, 45);
+        }
+        assert_eq!(app.generation_ms, MIN_GENERATION_MS);
+        for _ in 0..100 {
+            handle_key(&mut app, None, 43);
+        }
+        assert_eq!(app.generation_ms, MAX_GENERATION_MS);
     }
 }

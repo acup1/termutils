@@ -24,6 +24,8 @@ them. Space pauses or resumes simulation, and `N` advances one generation while
 paused. `C` clears the field and `Q` quits.
 `Shift+R` replaces the field with a random pattern covering the visible camera
 area and pauses the simulation.
+`-` reduces the generation delay by 30 ms, and `+` increases it. The current
+delay is shown in the header and is limited to 30–990 ms.
 
 `S` saves the complete field to `life.world`, including cells outside the
 viewport, and `L` loads it. Pass another file name after `--` to use a different
