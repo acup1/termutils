@@ -1,13 +1,94 @@
 use std::collections::VecDeque;
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
-use termutils::{KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP, WindowManager, terminal::Terminal};
+use termutils::{
+    terminal::Terminal, Mouse, MouseEvent, WindowManager, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP,
+    MOUSE_EVENT,
+};
 
 const SEGMENT_WIDTH: i32 = 5;
 const SEGMENT_HEIGHT: i32 = 3;
 const MIN_COLUMNS: i32 = 8;
 const MIN_ROWS: i32 = 5;
-const FRAME_MS: u64 = 90;
+const MENU_FRAME_MS: u64 = 50;
+const MENU_WIDTH: i32 = 38;
+const MENU_HEIGHT: i32 = 11;
+const APPLE_GLYPH: char = '\u{e29e}';
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum Difficulty {
+    Easy,
+    Normal,
+    Hard,
+}
+
+impl Difficulty {
+    const ALL: [Self; 3] = [Self::Easy, Self::Normal, Self::Hard];
+
+    fn number(self) -> usize {
+        match self {
+            Self::Easy => 1,
+            Self::Normal => 2,
+            Self::Hard => 3,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Easy => "EASY",
+            Self::Normal => "NORMAL",
+            Self::Hard => "HARD",
+        }
+    }
+
+    fn frame_ms(self) -> u64 {
+        match self {
+            Self::Easy => 210,
+            Self::Normal => 140,
+            Self::Hard => 90,
+        }
+    }
+
+    fn from_number(key: i32) -> Option<Self> {
+        match key {
+            49 => Some(Self::Easy),
+            50 => Some(Self::Normal),
+            51 => Some(Self::Hard),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct HitBox {
+    x: i32,
+    y: i32,
+    width: i32,
+}
+
+impl HitBox {
+    fn contains(self, mouse: Mouse) -> bool {
+        i32::from(mouse.y) == self.y
+            && i32::from(mouse.x) >= self.x
+            && i32::from(mouse.x) < self.x + self.width
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct MenuLayout {
+    options: [(Difficulty, HitBox); 3],
+}
+
+impl MenuLayout {
+    fn clicked(self, mouse: Mouse) -> Option<Difficulty> {
+        if mouse.event != MouseEvent::LEFT {
+            return None;
+        }
+        self.options
+            .into_iter()
+            .find_map(|(difficulty, hitbox)| hitbox.contains(mouse).then_some(difficulty))
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Point {
@@ -251,8 +332,11 @@ fn add_overlay(windows: &mut WindowManager, terminal_height: u16, terminal_width
     window.posprint(0, 1, text);
 }
 
-fn add_status(windows: &mut WindowManager, score: usize) {
-    let text = format!(" score: {score} | q: quit ");
+fn add_status(windows: &mut WindowManager, score: usize, difficulty: Difficulty) {
+    let text = format!(
+        " score: {score} | {} | q: quit ",
+        difficulty.name().to_lowercase()
+    );
     let id = windows.new_window(200);
     let window = windows.get_mut(id).expect("new window exists");
     window.x = -1;
@@ -271,6 +355,7 @@ fn render(
     terminal_height: u16,
     terminal_width: u16,
     game: &Game,
+    difficulty: Difficulty,
 ) -> io::Result<()> {
     windows.del_all_windows();
 
@@ -281,20 +366,20 @@ fn render(
     background.filling = true;
 
     if let Some(food) = game.food {
-        let food_id = add_square_window(windows, game.grid, food, 1, 0);
+        let food_id = add_square_window(windows, game.grid, food, 1, -1);
         windows
             .get_mut(food_id)
             .expect("food window exists")
-            .poswchar(0, 1, '◆');
+            .poswchar(0, 1, APPLE_GLYPH);
     }
 
     for (index, point) in game.snake.iter().enumerate().rev() {
-        let segment_id = add_square_window(windows, game.grid, *point, 2, 1);
+        let segment_id = add_square_window(windows, game.grid, *point, 2, i32::from(index != 0));
         if index == 0 {
             windows
                 .get_mut(segment_id)
                 .expect("head window exists")
-                .poswchar(0, 1, '●');
+                .posprint(0, 0, "^~^");
         }
     }
 
@@ -308,28 +393,153 @@ fn render(
             "GAME OVER — r: retry",
         );
     }
-    add_status(windows, game.score);
+    add_status(windows, game.score, difficulty);
 
     windows.render_windows(terminal)
 }
 
-fn render_too_small(terminal: &mut Terminal) -> io::Result<()> {
-    terminal.clear()?;
-    terminal.posprint(
-        0,
-        0,
-        format!(
-            "Terminal is too small: need at least {}x{} (press q to quit)",
-            MIN_COLUMNS * SEGMENT_WIDTH,
-            MIN_ROWS * SEGMENT_HEIGHT,
-        ),
+fn add_background(windows: &mut WindowManager, terminal_height: u16, terminal_width: u16) {
+    let background_id = windows.new_window(0);
+    let background = windows.get_mut(background_id).expect("new window exists");
+    background.toggle_fullscreen(terminal_height, terminal_width);
+    background.border = -1;
+    background.filling = true;
+}
+
+fn render_too_small(
+    terminal: &mut Terminal,
+    windows: &mut WindowManager,
+    terminal_height: u16,
+    terminal_width: u16,
+) -> io::Result<()> {
+    windows.del_all_windows();
+    add_background(windows, terminal_height, terminal_width);
+    let text = format!(
+        "Terminal is too small: need at least {}x{} (press q to quit)",
+        MIN_COLUMNS * SEGMENT_WIDTH,
+        MIN_ROWS * SEGMENT_HEIGHT,
     );
-    terminal.refresh()
+    let id = windows.new_window(1);
+    let window = windows.get_mut(id).expect("new window exists");
+    window.x = -1;
+    window.y = -1;
+    window.width = text.chars().count() as i32 + 2;
+    window.height = 3;
+    window.always_on_screen = false;
+    window.border = -1;
+    window.filling = false;
+    window.posprint(0, 0, text);
+    windows.render_windows(terminal)
+}
+
+fn render_difficulty_menu(
+    terminal: &mut Terminal,
+    windows: &mut WindowManager,
+    terminal_height: u16,
+    terminal_width: u16,
+    selected: usize,
+) -> io::Result<MenuLayout> {
+    windows.del_all_windows();
+    add_background(windows, terminal_height, terminal_width);
+
+    let x = (i32::from(terminal_width) - MENU_WIDTH) / 2;
+    let y = (i32::from(terminal_height) - MENU_HEIGHT) / 2;
+    let menu_id = windows.new_window(10);
+    let menu = windows.get_mut(menu_id).expect("new window exists");
+    menu.x = x;
+    menu.y = y;
+    menu.width = MENU_WIDTH;
+    menu.height = MENU_HEIGHT;
+    menu.always_on_screen = false;
+    menu.border = 0;
+    menu.filling = true;
+    menu.name = Some(" SNAKE — SELECT DIFFICULTY ".into());
+    menu.posprint(0, 7, "speed / move");
+
+    let mut options = [(
+        Difficulty::Easy,
+        HitBox {
+            x: 0,
+            y: 0,
+            width: 0,
+        },
+    ); 3];
+    for (index, difficulty) in Difficulty::ALL.into_iter().enumerate() {
+        let content_y = 2 + index as i32 * 2;
+        let marker = if index == selected { '>' } else { ' ' };
+        menu.posprint(
+            content_y,
+            3,
+            format!(
+                "{marker} {}. {:<8} {:>3} ms",
+                difficulty.number(),
+                difficulty.name(),
+                difficulty.frame_ms()
+            ),
+        );
+        options[index] = (
+            difficulty,
+            HitBox {
+                x: x + 1,
+                y: y + content_y + 1,
+                width: MENU_WIDTH - 2,
+            },
+        );
+    }
+    menu.posprint(8, 4, "↑/↓ + Enter, 1–3 or click");
+    windows.render_windows(terminal)?;
+    Ok(MenuLayout { options })
+}
+
+fn choose_difficulty(
+    terminal: &mut Terminal,
+    windows: &mut WindowManager,
+) -> io::Result<Option<Difficulty>> {
+    let mut selected = 1;
+    loop {
+        let (terminal_height, terminal_width) = terminal.getsize();
+        let layout = if Grid::from_terminal(terminal_height, terminal_width).is_some() {
+            Some(render_difficulty_menu(
+                terminal,
+                windows,
+                terminal_height,
+                terminal_width,
+                selected,
+            )?)
+        } else {
+            render_too_small(terminal, windows, terminal_height, terminal_width)?;
+            None
+        };
+
+        let key = terminal.get_key(MENU_FRAME_MS, true)?;
+        if matches!(key, 113 | 81) {
+            return Ok(None);
+        }
+        if let Some(difficulty) = Difficulty::from_number(key) {
+            return Ok(Some(difficulty));
+        }
+        match key {
+            KEY_UP => selected = (selected + Difficulty::ALL.len() - 1) % Difficulty::ALL.len(),
+            KEY_DOWN => selected = (selected + 1) % Difficulty::ALL.len(),
+            10 | 13 => return Ok(Some(Difficulty::ALL[selected])),
+            MOUSE_EVENT => {
+                if let Some(difficulty) =
+                    layout.and_then(|layout| layout.clicked(terminal.getmouse()))
+                {
+                    return Ok(Some(difficulty));
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 fn main() -> io::Result<()> {
     let mut terminal = Terminal::wannajustwork()?;
     let mut windows = WindowManager::new();
+    let Some(difficulty) = choose_difficulty(&mut terminal, &mut windows)? else {
+        return Ok(());
+    };
     let mut game: Option<Game> = None;
 
     loop {
@@ -346,13 +556,14 @@ fn main() -> io::Result<()> {
                 terminal_height,
                 terminal_width,
                 game.as_ref().expect("game was initialized"),
+                difficulty,
             )?;
         } else {
             game = None;
-            render_too_small(&mut terminal)?;
+            render_too_small(&mut terminal, &mut windows, terminal_height, terminal_width)?;
         }
 
-        let key = terminal.get_key(FRAME_MS, true)?;
+        let key = terminal.get_key(difficulty.frame_ms(), true)?;
         if matches!(key, 113 | 81) {
             break;
         }
@@ -423,5 +634,71 @@ mod tests {
         game.food = Some(Point { x: 10, y: 5 });
         game.tick();
         assert_eq!(game.snake.front(), Some(&Point { x: 15, y: 3 }));
+    }
+
+    #[test]
+    fn hard_keeps_the_original_speed_and_levels_get_faster() {
+        assert_eq!(Difficulty::Hard.frame_ms(), 90);
+        assert!(Difficulty::Easy.frame_ms() > Difficulty::Normal.frame_ms());
+        assert!(Difficulty::Normal.frame_ms() > Difficulty::Hard.frame_ms());
+    }
+
+    #[test]
+    fn number_keys_select_difficulty() {
+        assert_eq!(Difficulty::from_number('1' as i32), Some(Difficulty::Easy));
+        assert_eq!(
+            Difficulty::from_number('2' as i32),
+            Some(Difficulty::Normal)
+        );
+        assert_eq!(Difficulty::from_number('3' as i32), Some(Difficulty::Hard));
+        assert_eq!(Difficulty::from_number('4' as i32), None);
+    }
+
+    #[test]
+    fn mouse_click_selects_the_matching_menu_row() {
+        let layout = MenuLayout {
+            options: [
+                (
+                    Difficulty::Easy,
+                    HitBox {
+                        x: 10,
+                        y: 4,
+                        width: 20,
+                    },
+                ),
+                (
+                    Difficulty::Normal,
+                    HitBox {
+                        x: 10,
+                        y: 6,
+                        width: 20,
+                    },
+                ),
+                (
+                    Difficulty::Hard,
+                    HitBox {
+                        x: 10,
+                        y: 8,
+                        width: 20,
+                    },
+                ),
+            ],
+        };
+        assert_eq!(
+            layout.clicked(Mouse {
+                x: 15,
+                y: 6,
+                event: MouseEvent::LEFT,
+            }),
+            Some(Difficulty::Normal)
+        );
+        assert_eq!(
+            layout.clicked(Mouse {
+                x: 15,
+                y: 6,
+                event: MouseEvent::IDLE,
+            }),
+            None
+        );
     }
 }
