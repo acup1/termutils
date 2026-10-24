@@ -3,6 +3,18 @@
 A terminal Snake game built against `termutils` directly from GitHub.
 
 ```sh
+nix run github:acup1/termutils/examples#snake
+```
+
+Or from a checkout of the `examples` branch:
+
+```sh
+nix run .#snake
+```
+
+Cargo remains available for development:
+
+```sh
 cargo run --manifest-path snake/Cargo.toml
 ```
 

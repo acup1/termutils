@@ -5,4 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-termutils = { git = "https://github.com/acup1/termutils.git", rev = "0d633b7a7b66d8ff200cdb1d7f80d96427450a7e" }
+termutils = { git = "https://github.com/acup1/termutils.git", rev = "3ca429cbf619bc6448dedb24eecfba39b0acc808" }
