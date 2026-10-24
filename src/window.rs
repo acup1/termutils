@@ -1,4 +1,4 @@
-use crate::framebuffer::{FrameBuffer, PresentStats};
+use crate::framebuffer::{CellStyle, FrameBuffer, PresentStats};
 use crate::layout::Rect;
 use crate::terminal::{Mouse, MouseEvent, Terminal};
 use std::collections::BTreeMap;
@@ -11,6 +11,7 @@ pub type WindowUpdater = Box<dyn FnMut(&mut Window)>;
 pub struct Cell {
     pub sym: char,
     pub color: Option<String>,
+    pub style: CellStyle,
     pub x: i32,
     pub y: i32,
 }
@@ -84,6 +85,20 @@ impl Window {
             Cell {
                 sym: character,
                 color: None,
+                style: CellStyle::default(),
+                x,
+                y,
+            },
+        );
+    }
+
+    pub fn posstyled(&mut self, y: i32, x: i32, character: char, style: CellStyle) {
+        self.content.insert(
+            (y, x),
+            Cell {
+                sym: character,
+                color: None,
+                style,
                 x,
                 y,
             },
@@ -93,6 +108,12 @@ impl Window {
     pub fn posprint(&mut self, y: i32, x: i32, text: impl AsRef<str>) {
         for (offset, character) in text.as_ref().chars().enumerate() {
             self.poswchar(y, x + offset as i32, character);
+        }
+    }
+
+    pub fn posprint_styled(&mut self, y: i32, x: i32, text: impl AsRef<str>, style: CellStyle) {
+        for (offset, character) in text.as_ref().chars().enumerate() {
+            self.posstyled(y, x + offset as i32, character, style);
         }
     }
 
@@ -323,7 +344,12 @@ fn render_window(window: &Window, framebuffer: &mut FrameBuffer) {
     }
     for cell in window.cells() {
         if cell.y >= 0 && cell.x >= 0 && cell.y < window.height - 2 && cell.x < window.width - 2 {
-            framebuffer.put(window.y + cell.y + 1, window.x + cell.x + 1, cell.sym);
+            framebuffer.put_styled(
+                window.y + cell.y + 1,
+                window.x + cell.x + 1,
+                cell.sym,
+                cell.style,
+            );
         }
     }
     if window.border != -1 {

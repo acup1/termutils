@@ -1,6 +1,34 @@
 // #[allow(unused)]
 use std::fmt;
 
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Rgb {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl Rgb {
+    pub const BLACK: Self = Self::new(0, 0, 0);
+    pub const WHITE: Self = Self::new(255, 255, 255);
+
+    pub const fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    pub fn foreground(self) -> String {
+        format!("\x1b[38;2;{};{};{}m", self.r, self.g, self.b)
+    }
+
+    pub fn background(self) -> String {
+        format!("\x1b[48;2;{};{};{}m", self.r, self.g, self.b)
+    }
+
+    pub fn hex(self) -> String {
+        format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Color {
     Black,
