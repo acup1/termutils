@@ -251,6 +251,20 @@ fn add_overlay(windows: &mut WindowManager, terminal_height: u16, terminal_width
     window.posprint(0, 1, text);
 }
 
+fn add_status(windows: &mut WindowManager, score: usize) {
+    let text = format!(" score: {score} | q: quit ");
+    let id = windows.new_window(200);
+    let window = windows.get_mut(id).expect("new window exists");
+    window.x = -1;
+    window.y = -1;
+    window.width = text.chars().count() as i32 + 2;
+    window.height = 3;
+    window.always_on_screen = false;
+    window.border = -1;
+    window.filling = false;
+    window.posprint(0, 0, text);
+}
+
 fn render(
     terminal: &mut Terminal,
     windows: &mut WindowManager,
@@ -258,7 +272,6 @@ fn render(
     terminal_width: u16,
     game: &Game,
 ) -> io::Result<()> {
-    terminal.clear()?;
     windows.del_all_windows();
 
     let background_id = windows.new_window(0);
@@ -295,10 +308,9 @@ fn render(
             "GAME OVER — r: retry",
         );
     }
+    add_status(windows, game.score);
 
-    windows.render_windows(terminal)?;
-    terminal.posprint(0, 0, format!(" score: {} | q: quit ", game.score));
-    terminal.refresh()
+    windows.render_windows(terminal)
 }
 
 fn render_too_small(terminal: &mut Terminal) -> io::Result<()> {
