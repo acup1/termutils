@@ -28,6 +28,7 @@ pub struct Window {
     saved_bounds: Option<(i32, i32, i32, i32)>,
     pub layer: i32,
     pub border: i32,
+    pub border_style: CellStyle,
     pub filling: bool,
     pub visible: bool,
     content: BTreeMap<(i32, i32), Cell>,
@@ -62,6 +63,7 @@ impl Window {
             saved_bounds: None,
             layer,
             border: 0,
+            border_style: CellStyle::default(),
             filling: true,
             visible: true,
             content: BTreeMap::new(),
@@ -360,14 +362,23 @@ fn render_window(window: &Window, framebuffer: &mut FrameBuffer) {
             window.height,
             window.width,
             window.border != 0,
+            window.border_style,
         );
     }
     if let Some(name) = &window.name {
-        framebuffer.put_text(window.y, window.x + 1, name);
+        framebuffer.put_text_styled(window.y, window.x + 1, name, window.border_style);
     }
 }
 
-fn draw_box(framebuffer: &mut FrameBuffer, y: i32, x: i32, height: i32, width: i32, square: bool) {
+fn draw_box(
+    framebuffer: &mut FrameBuffer,
+    y: i32,
+    x: i32,
+    height: i32,
+    width: i32,
+    square: bool,
+    style: CellStyle,
+) {
     if height < 2 || width < 2 {
         return;
     }
@@ -377,17 +388,17 @@ fn draw_box(framebuffer: &mut FrameBuffer, y: i32, x: i32, height: i32, width: i
         ('╭', '╮', '╰', '╯')
     };
     for column in 1..width - 1 {
-        framebuffer.put(y, x + column, '─');
-        framebuffer.put(y + height - 1, x + column, '─');
+        framebuffer.put_styled(y, x + column, '─', style);
+        framebuffer.put_styled(y + height - 1, x + column, '─', style);
     }
     for row in 1..height - 1 {
-        framebuffer.put(y + row, x, '│');
-        framebuffer.put(y + row, x + width - 1, '│');
+        framebuffer.put_styled(y + row, x, '│', style);
+        framebuffer.put_styled(y + row, x + width - 1, '│', style);
     }
-    framebuffer.put(y, x, top_left);
-    framebuffer.put(y, x + width - 1, top_right);
-    framebuffer.put(y + height - 1, x, bottom_left);
-    framebuffer.put(y + height - 1, x + width - 1, bottom_right);
+    framebuffer.put_styled(y, x, top_left, style);
+    framebuffer.put_styled(y, x + width - 1, top_right, style);
+    framebuffer.put_styled(y + height - 1, x, bottom_left, style);
+    framebuffer.put_styled(y + height - 1, x + width - 1, bottom_right, style);
 }
 
 #[cfg(test)]
@@ -509,5 +520,25 @@ mod tests {
         window.set_rect(Rect::new(2, 3, 40, 10));
         assert!(!window.fullscreen);
         assert_eq!(window.rect(), Rect::new(2, 3, 40, 10));
+    }
+
+    #[test]
+    fn border_style_is_composited_into_the_framebuffer() {
+        let mut manager = WindowManager::new();
+        let id = manager.new_window(0);
+        let green = CellStyle::foreground(crate::color::Rgb::new(0, 200, 80));
+        let window = manager.get_mut(id).unwrap();
+        window.width = 5;
+        window.height = 3;
+        window.border_style = green;
+
+        manager
+            .render_to(3, 5, Mouse::default(), &mut Vec::new())
+            .unwrap();
+        assert_eq!(manager.framebuffer().get(0, 0).unwrap().style, green);
+        assert_eq!(
+            manager.framebuffer().get(1, 1).unwrap().style,
+            CellStyle::default()
+        );
     }
 }
