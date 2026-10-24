@@ -3,7 +3,7 @@ use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use termutils::{
     terminal::Terminal, CellStyle, Mouse, MouseEvent, Rgb, WindowManager, KEY_DOWN, KEY_LEFT,
@@ -20,6 +20,7 @@ const GENERATION_MS: u64 = 180;
 const DEFAULT_PATH: &str = "life.world";
 const LIVE_COLOR: Rgb = Rgb::new(34, 197, 94);
 const CURSOR_COLOR: Rgb = Rgb::new(250, 204, 21);
+const RANDOM_DENSITY_PERCENT: u64 = 35;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Point {
@@ -60,6 +61,22 @@ impl World {
     fn clear(&mut self) {
         self.cells.clear();
         self.generation = 0;
+    }
+
+    fn randomize(&mut self, origin: Point, columns: i32, rows: i32, seed: u64) {
+        self.clear();
+        let mut random = Random::new(seed);
+        for row in 0..rows {
+            for column in 0..columns {
+                let (Some(x), Some(y)) = (origin.x.checked_add(column), origin.y.checked_add(row))
+                else {
+                    continue;
+                };
+                if random.next() % 100 < RANDOM_DENSITY_PERCENT {
+                    self.cells.insert(Point::new(x, y));
+                }
+            }
+        }
     }
 
     fn step(&mut self) {
@@ -134,6 +151,31 @@ impl World {
         let input = fs::read_to_string(path)?;
         Self::deserialize(&input).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
     }
+}
+
+struct Random(u64);
+
+impl Random {
+    fn new(seed: u64) -> Self {
+        Self(seed.max(1))
+    }
+
+    fn next(&mut self) -> u64 {
+        let mut value = self.0;
+        value ^= value << 13;
+        value ^= value >> 7;
+        value ^= value << 17;
+        self.0 = value;
+        value
+    }
+}
+
+fn random_seed() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or(1)
+        ^ u64::from(std::process::id())
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -244,6 +286,14 @@ impl App {
             self.last_generation = Instant::now();
         }
     }
+
+    fn randomize(&mut self, viewport: Viewport) {
+        self.world
+            .randomize(self.camera, viewport.columns, viewport.rows, random_seed());
+        self.paused = true;
+        self.last_generation = Instant::now();
+        self.status = format!("Randomized {} visible cells", self.world.cells.len());
+    }
 }
 
 fn add_cell_window(
@@ -322,7 +372,7 @@ fn render(
         0,
         1,
         format!(
-            "{}  gen:{} cells:{}  cam:({}, {}) | Arrows Space N Enter S/L C Q | {}",
+            "{}  gen:{} cells:{}  cam:({}, {}) | Arrows Space N Enter Shift+R S/L C Q | {}",
             if app.paused { "PAUSED" } else { "RUN" },
             app.world.generation,
             app.world.cells.len(),
@@ -383,6 +433,11 @@ fn handle_key(app: &mut App, viewport: Option<Viewport>, key: i32) -> bool {
         110 | 78 if app.paused => {
             app.world.step();
             app.status = "Advanced one generation".into();
+        }
+        82 => {
+            if let Some(viewport) = viewport {
+                app.randomize(viewport);
+            }
         }
         115 | 83 => app.save(),
         108 | 76 => app.load(),
@@ -448,6 +503,23 @@ mod tests {
             generation: 42,
         };
         assert_eq!(World::deserialize(&world.serialize()).unwrap(), world);
+    }
+
+    #[test]
+    fn random_fill_is_seeded_and_stays_inside_the_viewport() {
+        let origin = Point::new(-4, 7);
+        let mut first = World::default();
+        let mut second = World::default();
+        first.randomize(origin, 12, 8, 42);
+        second.randomize(origin, 12, 8, 42);
+
+        assert_eq!(first, second);
+        assert!(!first.cells.is_empty());
+        assert!(first.cells.len() < 12 * 8);
+        assert!(first
+            .cells
+            .iter()
+            .all(|point| { point.x >= -4 && point.x < 8 && point.y >= 7 && point.y < 15 }));
     }
 
     #[test]
