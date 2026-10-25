@@ -654,7 +654,7 @@ fn render(
     let colors_rect = columns[2];
 
     let menu = windows.get_mut(menu_id).expect("menu exists");
-    configure_window(menu, "Termutils Paint");
+    configure_window(menu, "Terminalib Paint");
     menu.posprint(0, 1, "[ File ]");
     menu.posprint(0, 12, format!("[ Symbol: {} ]", app.symbol));
     menu.posprint(0, 30, "O Open  S Save  Q Quit");

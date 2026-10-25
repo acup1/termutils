@@ -5,4 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-terminalib = { package = "termutils", git = "https://github.com/acup1/terminalib.git", rev = "3f199a22a8c4f13e89dc7cb144e896a9d1998dc4" }
+terminalib = { git = "https://github.com/acup1/terminalib.git", rev = "e7469f23bd17e17f8f19c2ff3449d22b4d81abb3" }

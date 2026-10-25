@@ -12,7 +12,7 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          terminalibGitHash = "sha256-IZYzxP+LvIGCq08Tg8mI5OcWiOybI7EuBMG9ryl1Q/s=";
+          terminalibGitHash = "sha256-zcVgI7UqfdXmzoBIrY86SSQQHr1V8EEvEmt/ihw3/7g=";
           buildExample = { pname, source }:
             pkgs.rustPlatform.buildRustPackage {
               inherit pname;
@@ -20,7 +20,7 @@
               src = source;
               cargoLock = {
                 lockFile = source + "/Cargo.lock";
-                outputHashes."termutils-0.1.0" = terminalibGitHash;
+                outputHashes."terminalib-0.1.0" = terminalibGitHash;
               };
             };
         in
