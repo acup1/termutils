@@ -12,5 +12,6 @@ pub use framebuffer::{CellStyle, FrameBuffer, FrameCell, PresentStats};
 pub use layout::{Layout, LayoutDirection, LayoutError, Rect};
 pub use terminal::{
     KEY_DOWN, KEY_FAIL, KEY_LEFT, KEY_RIGHT, KEY_UP, MOUSE_EVENT, Mouse, MouseEvent,
+    MouseModifiers, MouseTrackingMode,
 };
 pub use window::{Cell, Window, WindowId, WindowManager};

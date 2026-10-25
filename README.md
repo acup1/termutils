@@ -34,6 +34,26 @@ fn main() -> io::Result<()> {
 screen when it is dropped. To read numeric codes for arrows and mouse events,
 use `Terminal::get_key(timeout_ms, wait)`.
 
+Mouse reports include `shift`, `alt`, and `ctrl` modifier flags. The default
+`enable_mouse()` mode reports clicks and dragging. To receive cell coordinates
+whenever the pointer moves, including without a pressed button, enable
+terminal-only any-event tracking:
+
+```rust,no_run
+use terminalib::{terminal::Terminal, MouseTrackingMode};
+
+let mut terminal = Terminal::new()?;
+terminal.enable_mouse_tracking(MouseTrackingMode::AnyEvent)?;
+terminal.get_key(100, false)?;
+
+let mouse = terminal.getmouse();
+println!("{}, {} (shift: {})", mouse.x, mouse.y, mouse.modifiers.shift);
+# Ok::<(), std::io::Error>(())
+```
+
+Any-event tracking depends on xterm-compatible mouse support and reports
+terminal cell coordinates, not pixels. It can generate a high volume of input.
+
 ## Framebuffer rendering
 
 `WindowManager` composites every layer into a framebuffer. After the first

@@ -448,6 +448,7 @@ mod tests {
                     x: 3,
                     y: 1,
                     event: MouseEvent::LEFT,
+                    ..Mouse::default()
                 },
                 &mut output,
             )

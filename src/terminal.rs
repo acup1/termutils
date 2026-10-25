@@ -15,6 +15,45 @@ pub const KEY_UP: i32 = 130;
 pub const KEY_DOWN: i32 = 131;
 pub const MOUSE_EVENT: i32 = 132;
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
+pub struct MouseModifiers {
+    pub shift: bool,
+    pub alt: bool,
+    pub ctrl: bool,
+}
+
+impl MouseModifiers {
+    fn from_button_code(button: u16) -> Self {
+        Self {
+            shift: button & 4 != 0,
+            alt: button & 8 != 0,
+            ctrl: button & 16 != 0,
+        }
+    }
+}
+
+/// Controls which mouse events the terminal reports.
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
+pub enum MouseTrackingMode {
+    /// Report button presses and releases, but no pointer movement.
+    Normal,
+    /// Report pointer movement while a button is held.
+    #[default]
+    ButtonEvent,
+    /// Report every pointer movement, including movement without a held button.
+    AnyEvent,
+}
+
+impl MouseTrackingMode {
+    fn enable_sequence(self) -> &'static [u8] {
+        match self {
+            Self::Normal => b"\x1b[?1000h\x1b[?1006h",
+            Self::ButtonEvent => b"\x1b[?1002h\x1b[?1006h",
+            Self::AnyEvent => b"\x1b[?1003h\x1b[?1006h",
+        }
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub enum MouseEvent {
@@ -75,6 +114,7 @@ pub struct Mouse {
     pub x: u16,
     pub y: u16,
     pub event: MouseEvent,
+    pub modifiers: MouseModifiers,
 }
 
 pub struct Terminal {
@@ -312,8 +352,19 @@ impl Terminal {
     }
 
     pub fn enable_mouse(&mut self) -> io::Result<()> {
-        self.stdout
-            .write_all(b"\x1b[?1000h\x1b[?1002h\x1b[?1006h")?;
+        self.enable_mouse_tracking(MouseTrackingMode::ButtonEvent)
+    }
+
+    /// Enables mouse reporting at the requested granularity.
+    ///
+    /// [`MouseTrackingMode::AnyEvent`] asks compatible terminals to report
+    /// cell coordinates continuously as the pointer moves. This uses terminal
+    /// escape sequences only; no window-system integration is required.
+    pub fn enable_mouse_tracking(&mut self, mode: MouseTrackingMode) -> io::Result<()> {
+        self.stdout.write_all(
+            b"\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l",
+        )?;
+        self.stdout.write_all(mode.enable_sequence())?;
         self.mouse_enabled = true;
         *self.mouse.lock().unwrap() = Mouse::default();
         self.refresh()
@@ -321,7 +372,7 @@ impl Terminal {
 
     pub fn disable_mouse(&mut self) -> io::Result<()> {
         self.stdout
-            .write_all(b"\x1b[?1006l\x1b[?1002l\x1b[?1000l")?;
+            .write_all(b"\x1b[?1006l\x1b[?1003l\x1b[?1002l\x1b[?1000l")?;
         self.mouse_enabled = false;
         self.refresh()
     }
@@ -408,10 +459,12 @@ fn decode_input(input: &[u8]) -> (i32, Option<Mouse>) {
         return (KEY_LEFT, None);
     }
     if input.len() >= 6 && input.starts_with(b"\x1b[M") {
+        let button = input[3].saturating_sub(32);
         let mouse = Mouse {
             x: input[4].saturating_sub(33) as u16,
             y: input[5].saturating_sub(33) as u16,
-            event: x10_mouse_event(input[3]),
+            event: mouse_event(u16::from(button), false),
+            modifiers: MouseModifiers::from_button_code(u16::from(button)),
         };
         return (MOUSE_EVENT, Some(mouse));
     }
@@ -421,17 +474,30 @@ fn decode_input(input: &[u8]) -> (i32, Option<Mouse>) {
     (input[0] as i32, None)
 }
 
-fn x10_mouse_event(button: u8) -> MouseEvent {
-    match button {
-        32 => MouseEvent::LEFT,
-        33 => MouseEvent::MIDDLE,
-        34 => MouseEvent::RIGHT,
-        35 => MouseEvent::IDLE,
-        64 => MouseEvent::SPAMLEFT,
-        65 => MouseEvent::SPAMMIDDLE,
-        66 => MouseEvent::SPAMRIGHT,
-        96 => MouseEvent::WHEELUP,
-        97 => MouseEvent::WHEELDOWN,
+fn mouse_event(button: u16, released: bool) -> MouseEvent {
+    if released {
+        return MouseEvent::IDLE;
+    }
+    let base_button = button & 3;
+    if button & 64 != 0 {
+        return match base_button {
+            0 => MouseEvent::WHEELUP,
+            1 => MouseEvent::WHEELDOWN,
+            _ => MouseEvent::IDLE,
+        };
+    }
+    if button & 32 != 0 {
+        return match base_button {
+            0 => MouseEvent::SPAMLEFT,
+            1 => MouseEvent::SPAMMIDDLE,
+            2 => MouseEvent::SPAMRIGHT,
+            _ => MouseEvent::IDLE,
+        };
+    }
+    match base_button {
+        0 => MouseEvent::LEFT,
+        1 => MouseEvent::MIDDLE,
+        2 => MouseEvent::RIGHT,
         _ => MouseEvent::IDLE,
     }
 }
@@ -448,23 +514,12 @@ fn parse_sgr_mouse(input: &[u8]) -> Option<Mouse> {
     if values.next().is_some() {
         return None;
     }
-    let event = if released {
-        MouseEvent::IDLE
-    } else {
-        match button {
-            0 => MouseEvent::LEFT,
-            1 => MouseEvent::MIDDLE,
-            2 => MouseEvent::RIGHT,
-            32 => MouseEvent::SPAMLEFT,
-            33 => MouseEvent::SPAMMIDDLE,
-            34 => MouseEvent::SPAMRIGHT,
-            35 => MouseEvent::IDLE,
-            64 => MouseEvent::WHEELUP,
-            65 => MouseEvent::WHEELDOWN,
-            _ => MouseEvent::IDLE,
-        }
-    };
-    Some(Mouse { x, y, event })
+    Some(Mouse {
+        x,
+        y,
+        event: mouse_event(button, released),
+        modifiers: MouseModifiers::from_button_code(button),
+    })
 }
 
 impl Drop for Terminal {
@@ -498,6 +553,7 @@ mod tests {
                     x: 5,
                     y: 7,
                     event: MouseEvent::LEFT,
+                    modifiers: MouseModifiers::default(),
                 })
             )
         );
@@ -509,12 +565,66 @@ mod tests {
                     x: 11,
                     y: 8,
                     event: MouseEvent::WHEELUP,
+                    modifiers: MouseModifiers::default(),
                 })
             )
         );
         assert_eq!(
             decode_input(b"\x1b[<0;12;9m").1.unwrap().event,
             MouseEvent::IDLE
+        );
+    }
+
+    #[test]
+    fn decodes_mouse_modifiers_without_changing_the_event() {
+        let shifted_click = decode_input(b"\x1b[<4;12;9M").1.unwrap();
+        assert_eq!(shifted_click.event, MouseEvent::LEFT);
+        assert_eq!(
+            shifted_click.modifiers,
+            MouseModifiers {
+                shift: true,
+                alt: false,
+                ctrl: false,
+            }
+        );
+
+        let modified_drag = decode_input(b"\x1b[<60;20;10M").1.unwrap();
+        assert_eq!(modified_drag.event, MouseEvent::SPAMLEFT);
+        assert_eq!(
+            modified_drag.modifiers,
+            MouseModifiers {
+                shift: true,
+                alt: true,
+                ctrl: true,
+            }
+        );
+
+        let shifted_x10_click = decode_input(&[27, b'[', b'M', 36, 38, 40]).1.unwrap();
+        assert_eq!(shifted_x10_click.event, MouseEvent::LEFT);
+        assert!(shifted_x10_click.modifiers.shift);
+    }
+
+    #[test]
+    fn decodes_unpressed_pointer_motion() {
+        let motion = decode_input(b"\x1b[<35;42;17M").1.unwrap();
+        assert_eq!((motion.x, motion.y), (41, 16));
+        assert_eq!(motion.event, MouseEvent::IDLE);
+        assert_eq!(motion.modifiers, MouseModifiers::default());
+    }
+
+    #[test]
+    fn mouse_tracking_modes_use_terminal_only_escape_sequences() {
+        assert_eq!(
+            MouseTrackingMode::Normal.enable_sequence(),
+            b"\x1b[?1000h\x1b[?1006h"
+        );
+        assert_eq!(
+            MouseTrackingMode::ButtonEvent.enable_sequence(),
+            b"\x1b[?1002h\x1b[?1006h"
+        );
+        assert_eq!(
+            MouseTrackingMode::AnyEvent.enable_sequence(),
+            b"\x1b[?1003h\x1b[?1006h"
         );
     }
 }
