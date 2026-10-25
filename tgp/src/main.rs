@@ -1,7 +1,7 @@
 use std::{error::Error, time::Duration};
 use terminalib::{
     terminal::Terminal,
-    tgp::{query_support, ImageData, TerminalImage},
+    tgp::{query_support, ImageData, ImageGroup, TerminalImage},
     Rgb, Rgba,
 };
 
@@ -30,7 +30,7 @@ fn animated_frame(tick: u8) -> Result<ImageData, terminalib::tgp::GraphicsError>
     ImageData::from_rgb_rows(&pixels)
 }
 
-fn monochrome_logo() -> Result<ImageData, terminalib::tgp::GraphicsError> {
+fn monochrome_logo(tick: u8) -> Result<ImageData, terminalib::tgp::GraphicsError> {
     let mut mask = vec![vec![false; 32]; 32];
     for (y, row) in mask.iter_mut().enumerate() {
         for (x, visible) in row.iter_mut().enumerate() {
@@ -39,7 +39,15 @@ fn monochrome_logo() -> Result<ImageData, terminalib::tgp::GraphicsError> {
             *visible = border || diagonal;
         }
     }
-    ImageData::from_monochrome_rows(&mask, Rgba::new(80, 220, 140, 255))
+    ImageData::from_monochrome_rows(
+        &mask,
+        Rgba::new(
+            80u8.wrapping_add(tick),
+            220u8.wrapping_add(tick.wrapping_mul(2)),
+            140u8.wrapping_add(tick.wrapping_mul(3)),
+            255,
+        ),
+    )
 }
 
 fn png_image() -> Result<ImageData, terminalib::tgp::GraphicsError> {
@@ -65,7 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.enable_alt_buffer()?;
     terminal.clear()?;
     terminal.curset(false)?;
-    terminal.posprint(0, 0, "Terminalib TGP demo — q quits");
+    terminal.posprint(0, 0, "Terminalib TGP demo — grouped redraw — q quits");
     terminal.posprint(1, 2, "per-pixel RGB / in-place frame replacement");
     terminal.posprint(1, 31, "one-color mask");
     terminal.posprint(1, 51, "PNG object");
@@ -74,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.setpos(2, 2);
     animated.upload_and_place(&mut terminal.stdout, 24, 12)?;
 
-    let mut monochrome = TerminalImage::new(1_002, monochrome_logo()?)?;
+    let mut monochrome = TerminalImage::new(1_002, monochrome_logo(0)?)?;
     terminal.setpos(2, 31);
     monochrome.upload_and_place(&mut terminal.stdout, 16, 12)?;
 
@@ -89,8 +97,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             break;
         }
         tick = tick.wrapping_add(3);
-        animated.replace_frame(&mut terminal.stdout, animated_frame(tick)?)?;
-        terminal.refresh()?;
+        let mut group = ImageGroup::begin(&mut terminal.stdout)?;
+        animated.replace_frame(&mut group, animated_frame(tick)?)?;
+        monochrome.replace_frame(&mut group, monochrome_logo(tick)?)?;
+        group.present()?;
     }
 
     animated.delete(&mut terminal.stdout)?;

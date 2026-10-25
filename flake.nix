@@ -12,7 +12,7 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          terminalibGitHash = "sha256-jMHN7WG47ex/E/iZ1s+AnG4poEka60RxS6pteG42CFE=";
+          terminalibGitHash = "sha256-ujQXKF8HC1hiBEXHJ9Sg6fx7tqFSTQHdWIV5MYDvRt0=";
           buildExample = { pname, source }:
             pkgs.rustPlatform.buildRustPackage {
               inherit pname;

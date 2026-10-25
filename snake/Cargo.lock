@@ -17,7 +17,7 @@ checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 [[package]]
 name = "terminalib"
 version = "0.1.0"
-source = "git+https://github.com/acup1/terminalib.git?rev=02753b98a940111464a1ba30b54ece1eb67b5167#02753b98a940111464a1ba30b54ece1eb67b5167"
+source = "git+https://github.com/acup1/terminalib.git?rev=57676777d141be2cc7114492736a8ed8ec5788e5#57676777d141be2cc7114492736a8ed8ec5788e5"
 dependencies = [
  "base64",
  "libc",
