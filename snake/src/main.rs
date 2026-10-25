@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
-use termutils::{
+use terminalib::{
     terminal::Terminal, CellStyle, Mouse, MouseEvent, Rgb, WindowManager, KEY_DOWN, KEY_LEFT,
     KEY_RIGHT, KEY_UP, MOUSE_EVENT,
 };
@@ -307,7 +307,7 @@ fn add_square_window(
     point: Point,
     layer: i32,
     border: i32,
-) -> termutils::WindowId {
+) -> terminalib::WindowId {
     let position = grid.terminal_position(point);
     let id = windows.new_window(layer);
     let window = windows.get_mut(id).expect("new window exists");

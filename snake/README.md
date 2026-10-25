@@ -1,9 +1,9 @@
 # Snake
 
-A terminal Snake game built against `termutils` directly from GitHub.
+A terminal Snake game built against `terminalib` directly from GitHub.
 
 ```sh
-nix run github:acup1/termutils/examples#snake
+nix run github:acup1/terminalib/examples#snake
 ```
 
 Or from a checkout of the `examples` branch:
@@ -19,7 +19,7 @@ cargo run --manifest-path snake/Cargo.toml
 ```
 
 The game uses the whole terminal. Every snake segment is rendered as its own
-5×3 `termutils::Window`, which appears approximately square with typical
+5×3 `terminalib::Window`, which appears approximately square with typical
 terminal fonts. Resizing the terminal rebuilds the grid and starts a new game.
 Rendering uses the library framebuffer, so unchanged cells are not written and
 adjacent changes share one cursor move.

@@ -5,7 +5,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use termutils::{
+use terminalib::{
     terminal::Terminal, CellStyle, Mouse, MouseEvent, Rgb, WindowManager, KEY_DOWN, KEY_LEFT,
     KEY_RIGHT, KEY_UP, MOUSE_EVENT,
 };
@@ -106,7 +106,7 @@ impl World {
     }
 
     fn serialize(&self) -> String {
-        let mut output = format!("TERMUTILS_LIFE 1\n{}\n", self.generation);
+        let mut output = format!("TERMINALIB_LIFE 1\n{}\n", self.generation);
         for point in &self.cells {
             output.push_str(&format!("{} {}\n", point.x, point.y));
         }
@@ -115,8 +115,8 @@ impl World {
 
     fn deserialize(input: &str) -> Result<Self, String> {
         let mut lines = input.lines();
-        if lines.next() != Some("TERMUTILS_LIFE 1") {
-            return Err("not a termutils life v1 file".into());
+        if lines.next() != Some("TERMINALIB_LIFE 1") {
+            return Err("not a terminalib life v1 file".into());
         }
         let generation = lines
             .next()
@@ -315,7 +315,7 @@ fn add_cell_window(
     screen: Point,
     layer: i32,
     style: CellStyle,
-) -> termutils::WindowId {
+) -> terminalib::WindowId {
     let id = windows.new_window(layer);
     let window = windows.get_mut(id).expect("new window exists");
     window.x = screen.x;
@@ -551,7 +551,7 @@ mod tests {
             generation: 7,
         };
         let path = env::temp_dir().join(format!(
-            "termutils-life-{}-{}.world",
+            "terminalib-life-{}-{}.world",
             std::process::id(),
             std::thread::current().name().unwrap_or("world")
         ));

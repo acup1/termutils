@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use termutils::{
+use terminalib::{
     terminal::Terminal, CellStyle, Layout, LayoutError, Mouse, MouseEvent, Rect, Rgb, Window,
     WindowManager, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_UP, MOUSE_EVENT,
 };
@@ -159,7 +159,7 @@ impl Canvas {
     }
 
     fn serialize(&self) -> String {
-        let mut output = format!("TERMUTILS_PAINT 1\n{} {}\n", self.width, self.height);
+        let mut output = format!("TERMINALIB_PAINT 1\n{} {}\n", self.width, self.height);
         for ((x, y), cell) in &self.cells {
             output.push_str(&format!(
                 "{x} {y} {:X} {} {}\n",
@@ -173,8 +173,8 @@ impl Canvas {
 
     fn deserialize(input: &str) -> Result<Self, String> {
         let mut lines = input.lines();
-        if lines.next() != Some("TERMUTILS_PAINT 1") {
-            return Err("not a termutils paint v1 file".into());
+        if lines.next() != Some("TERMINALIB_PAINT 1") {
+            return Err("not a terminalib paint v1 file".into());
         }
         let dimensions = lines.next().ok_or("missing canvas dimensions")?;
         let mut dimensions = dimensions.split_whitespace();

@@ -1,14 +1,14 @@
 # Life
 
 Conway's Game of Life on an unbounded field. Every live cell is rendered as a
-separate 2×3 `termutils::Window` (two terminal rows by three columns), which
+separate 2×3 `terminalib::Window` (two terminal rows by three columns), which
 looks square with typical terminal fonts. The framebuffer redraws only changed
 terminal cells.
 
 Run it directly from GitHub:
 
 ```sh
-nix run github:acup1/termutils/examples#life
+nix run github:acup1/terminalib/examples#life
 ```
 
 Or from a checkout of the `examples` branch:

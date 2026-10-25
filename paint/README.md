@@ -1,13 +1,13 @@
 # Paint
 
 A fullscreen terminal paint application demonstrating nested percentage
-`termutils::Layout` regions, RGB framebuffer cells, mouse input, and popup
+`terminalib::Layout` regions, RGB framebuffer cells, mouse input, and popup
 windows.
 
 Run it directly from GitHub:
 
 ```sh
-nix run github:acup1/termutils/examples#paint
+nix run github:acup1/terminalib/examples#paint
 ```
 
 Or from a checkout of the `examples` branch:

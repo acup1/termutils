@@ -1,5 +1,5 @@
 {
-  description = "Runnable termutils example applications";
+  description = "Runnable terminalib example applications";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -12,7 +12,7 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          termutilsGitHash = "sha256-IZYzxP+LvIGCq08Tg8mI5OcWiOybI7EuBMG9ryl1Q/s=";
+          terminalibGitHash = "sha256-IZYzxP+LvIGCq08Tg8mI5OcWiOybI7EuBMG9ryl1Q/s=";
           buildExample = { pname, source }:
             pkgs.rustPlatform.buildRustPackage {
               inherit pname;
@@ -20,21 +20,21 @@
               src = source;
               cargoLock = {
                 lockFile = source + "/Cargo.lock";
-                outputHashes."termutils-0.1.0" = termutilsGitHash;
+                outputHashes."termutils-0.1.0" = terminalibGitHash;
               };
             };
         in
         rec {
           snake = buildExample {
-            pname = "termutils-snake-example";
+            pname = "terminalib-snake-example";
             source = ./snake;
           };
           paint = buildExample {
-            pname = "termutils-paint-example";
+            pname = "terminalib-paint-example";
             source = ./paint;
           };
           life = buildExample {
-            pname = "termutils-life-example";
+            pname = "terminalib-life-example";
             source = ./life;
           };
           default = paint;
@@ -43,15 +43,15 @@
       apps = forAllSystems (system: {
         snake = {
           type = "app";
-          program = "${self.packages.${system}.snake}/bin/termutils-snake-example";
+          program = "${self.packages.${system}.snake}/bin/terminalib-snake-example";
         };
         paint = {
           type = "app";
-          program = "${self.packages.${system}.paint}/bin/termutils-paint-example";
+          program = "${self.packages.${system}.paint}/bin/terminalib-paint-example";
         };
         life = {
           type = "app";
-          program = "${self.packages.${system}.life}/bin/termutils-life-example";
+          program = "${self.packages.${system}.life}/bin/terminalib-life-example";
         };
         default = self.apps.${system}.paint;
       });
