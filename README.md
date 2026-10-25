@@ -47,6 +47,38 @@ are erased by the framebuffer. If code writes directly to the terminal, call
 `render_windows_with_stats` to inspect the number of changed cells and cursor
 moves for a frame.
 
+## Terminal graphics protocol
+
+The `tgp` module supports Kitty terminal graphics with active capability
+detection, RGB/RGBA matrices, one-color masks, PNG files, and reusable terminal
+image objects. Large payloads are split into protocol-safe chunks. Animation
+frames can replace the root frame in-place or be uploaded for terminal-driven
+playback.
+
+```rust,no_run
+use std::time::Duration;
+use terminalib::{
+    terminal::Terminal,
+    tgp::{query_support, ImageData, TerminalImage},
+    Rgb,
+};
+
+let mut terminal = Terminal::new()?;
+if query_support(&mut terminal, Duration::from_millis(500))? {
+    let pixels = [[Rgb::new(255, 0, 0), Rgb::new(0, 0, 255)]];
+    let mut image = TerminalImage::new(1, ImageData::from_rgb(pixels)?)?;
+    image.upload_and_place(&mut terminal.stdout, 20, 10)?;
+}
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Run the interactive demo from the `examples` branch in a compatible terminal.
+An optional argument loads another PNG instead of the bundled sample:
+
+```sh
+nix run github:acup1/terminalib/examples#tgp -- path/to/image.png
+```
+
 ## Percentage layouts
 
 `Layout` divides any terminal region into percentage-sized rows or columns and

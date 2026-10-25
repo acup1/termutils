@@ -1,15 +1,24 @@
 use std::io;
 
+use std::time::Duration;
 use terminalib::{
     terminal::{self, MouseEvent},
-    tgp::ImgData,
+    tgp::{query_support, ImageData, TerminalImage},
 };
 
 fn img_from_path() -> io::Result<()> {
     let mut t = terminal::Terminal::wannajustwork()?;
 
-    let mut img = ImgData::new_from_file(1, "tests/imgs/err.png", 240, 120);
-    img.load();
+    if !query_support(&mut t, Duration::from_millis(250))? {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "terminal does not support the Kitty graphics protocol",
+        ));
+    }
+
+    let data = ImageData::from_png_file("tests/imgs/err.png").map_err(io::Error::other)?;
+    let mut img = TerminalImage::new(1, data).map_err(io::Error::other)?;
+    img.upload(&mut t.stdout).map_err(io::Error::other)?;
 
     t.refresh()?;
     loop {
@@ -29,19 +38,19 @@ fn img_from_path() -> io::Result<()> {
             match event {
                 MouseEvent::LEFT => {
                     t.setpos(y, x);
-                    img.draw(20, 5);
+                    img.place(&mut t.stdout, 20, 5).map_err(io::Error::other)?;
                 }
                 MouseEvent::SPAMLEFT => {
                     t.setpos(y, x);
-                    img.draw(20, 5);
+                    img.place(&mut t.stdout, 20, 5).map_err(io::Error::other)?;
                 }
                 MouseEvent::WHEELUP => {
                     t.setpos(y, x);
-                    img.draw(20, 5);
+                    img.place(&mut t.stdout, 20, 5).map_err(io::Error::other)?;
                 }
                 MouseEvent::WHEELDOWN => {
                     t.setpos(y, x);
-                    img.draw(20, 5);
+                    img.place(&mut t.stdout, 20, 5).map_err(io::Error::other)?;
                 }
                 _ => {}
             }

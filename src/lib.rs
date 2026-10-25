@@ -7,7 +7,7 @@ pub mod terminal;
 pub mod tgp;
 pub mod window;
 
-pub use color::{Color, Rgb};
+pub use color::{Color, Rgb, Rgba};
 pub use framebuffer::{CellStyle, FrameBuffer, FrameCell, PresentStats};
 pub use layout::{Layout, LayoutDirection, LayoutError, Rect};
 pub use terminal::{

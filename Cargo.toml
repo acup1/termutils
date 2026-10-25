@@ -6,4 +6,3 @@ edition = "2024"
 [dependencies]
 base64 = "0.22.1"
 libc = "0.2.183"
-termios = "0.3.3"

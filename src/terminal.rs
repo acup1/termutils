@@ -1,10 +1,12 @@
-use libc::{ioctl, poll, pollfd, read, winsize, POLLIN, STDOUT_FILENO, TIOCGWINSZ};
+use libc::{
+    ioctl, poll, pollfd, read, tcgetattr, tcsetattr, termios as Termios, winsize, ECHO, ICANON,
+    POLLIN, STDOUT_FILENO, TCSANOW, TIOCGWINSZ, VMIN, VTIME,
+};
 use std::io::{self, Stdin, Stdout, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use termios::{tcsetattr, Termios, ECHO, ICANON, TCSANOW, VMIN, VTIME};
 
 pub const KEY_FAIL: i32 = 0;
 pub const KEY_LEFT: i32 = 128;
@@ -100,7 +102,10 @@ impl Terminal {
     pub fn new() -> io::Result<Self> {
         let stdin = io::stdin();
         let stdin_fd = stdin.as_raw_fd();
-        let original = Termios::from_fd(stdin_fd)?;
+        let mut original: Termios = unsafe { std::mem::zeroed() };
+        if unsafe { tcgetattr(stdin_fd, &mut original) } == -1 {
+            return Err(io::Error::last_os_error());
+        }
         let mut raw = original;
         raw.c_lflag &= !(ICANON | ECHO);
         raw.c_cc[VMIN] = 1;
@@ -267,13 +272,13 @@ impl Terminal {
     }
 
     pub fn enable_raw_mode(&mut self) -> io::Result<()> {
-        tcsetattr(self.stdin_fd, TCSANOW, &self.raw)?;
+        set_terminal_attributes(self.stdin_fd, &self.raw)?;
         self.mode_state = true;
         Ok(())
     }
 
     pub fn disable_raw_mode(&mut self) -> io::Result<()> {
-        tcsetattr(self.stdin_fd, TCSANOW, &self.original)?;
+        set_terminal_attributes(self.stdin_fd, &self.original)?;
         self.mode_state = false;
         Ok(())
     }
@@ -465,7 +470,15 @@ fn parse_sgr_mouse(input: &[u8]) -> Option<Mouse> {
 impl Drop for Terminal {
     fn drop(&mut self) {
         let _ = self.restore();
-        let _ = tcsetattr(self.stdin_fd, TCSANOW, &self.original);
+        let _ = set_terminal_attributes(self.stdin_fd, &self.original);
+    }
+}
+
+fn set_terminal_attributes(fd: RawFd, attributes: &Termios) -> io::Result<()> {
+    if unsafe { tcsetattr(fd, TCSANOW, attributes) } == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
     }
 }
 
