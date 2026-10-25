@@ -7,7 +7,7 @@ use terminalib::{
 };
 
 fn img_from_path() -> io::Result<()> {
-    let mut t = terminal::Terminal::wannajustwork()?;
+    let mut t = terminal::Terminal::new()?;
 
     if !query_support(&mut t, Duration::from_millis(250))? {
         return Err(io::Error::new(
@@ -15,6 +15,11 @@ fn img_from_path() -> io::Result<()> {
             "terminal does not support the Kitty graphics protocol",
         ));
     }
+    t.enable_raw_mode()?;
+    t.enable_alt_buffer()?;
+    t.enable_mouse()?;
+    t.clear()?;
+    t.curset(false)?;
 
     let data = ImageData::from_png_file("tests/imgs/err.png").map_err(io::Error::other)?;
     let mut img = TerminalImage::new(1, data).map_err(io::Error::other)?;

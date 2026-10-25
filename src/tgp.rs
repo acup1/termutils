@@ -447,8 +447,20 @@ impl TerminalImage {
 /// Actively queries the terminal for Kitty graphics protocol support.
 pub fn query_support(terminal: &mut Terminal, timeout: Duration) -> io::Result<bool> {
     let restore_mode = !terminal.mode_state;
+    let restore_alt_buffer = !terminal.alt_buffer;
     if restore_mode {
         terminal.enable_raw_mode()?;
+    }
+    if restore_alt_buffer {
+        if let Err(error) = terminal.enable_alt_buffer() {
+            if terminal.alt_buffer {
+                let _ = terminal.disable_alt_buffer();
+            }
+            if restore_mode {
+                let _ = terminal.disable_raw_mode();
+            }
+            return Err(error);
+        }
     }
 
     let result = (|| {
@@ -487,13 +499,25 @@ pub fn query_support(terminal: &mut Terminal, timeout: Duration) -> io::Result<b
         }
     })();
 
-    if restore_mode {
-        let restore_result = terminal.disable_raw_mode();
-        if result.is_ok() {
-            restore_result?;
+    let mut cleanup_error = None;
+    if restore_alt_buffer {
+        if let Err(error) = terminal.disable_alt_buffer() {
+            cleanup_error = Some(error);
         }
     }
-    result
+    if restore_mode {
+        if let Err(error) = terminal.disable_raw_mode() {
+            cleanup_error.get_or_insert(error);
+        }
+    }
+
+    match result {
+        Err(error) => Err(error),
+        Ok(supported) => match cleanup_error {
+            Some(error) => Err(error),
+            None => Ok(supported),
+        },
+    }
 }
 
 fn transmit(writer: &mut impl Write, control: &str, data: &ImageData) -> io::Result<()> {
