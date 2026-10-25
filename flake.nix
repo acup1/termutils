@@ -12,7 +12,7 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          terminalibGitHash = "sha256-zcVgI7UqfdXmzoBIrY86SSQQHr1V8EEvEmt/ihw3/7g=";
+          terminalibGitHash = "sha256-oplC5I8yUkzcsT1zGqU0JN4JcF0NAdS/xgQfEBDHdbU=";
           buildExample = { pname, source }:
             pkgs.rustPlatform.buildRustPackage {
               inherit pname;
@@ -37,6 +37,10 @@
             pname = "terminalib-life-example";
             source = ./life;
           };
+          tgp = buildExample {
+            pname = "terminalib-tgp-example";
+            source = ./tgp;
+          };
           default = paint;
         });
 
@@ -52,6 +56,10 @@
         life = {
           type = "app";
           program = "${self.packages.${system}.life}/bin/terminalib-life-example";
+        };
+        tgp = {
+          type = "app";
+          program = "${self.packages.${system}.tgp}/bin/terminalib-tgp-example";
         };
         default = self.apps.${system}.paint;
       });

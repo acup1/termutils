@@ -5,4 +5,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-terminalib = { git = "https://github.com/acup1/terminalib.git", rev = "e7469f23bd17e17f8f19c2ff3449d22b4d81abb3" }
+terminalib = { git = "https://github.com/acup1/terminalib.git", rev = "69f98f153abea504d1a8782c87ecaca499367676" }

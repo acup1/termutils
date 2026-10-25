@@ -1,0 +1,8 @@
+[package]
+name = "terminalib-tgp-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+terminalib = { git = "https://github.com/acup1/terminalib.git", rev = "69f98f153abea504d1a8782c87ecaca499367676" }
