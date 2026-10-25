@@ -59,7 +59,7 @@ playback.
 use std::time::Duration;
 use terminalib::{
     terminal::Terminal,
-    tgp::{query_support, ImageData, TerminalImage},
+    tgp::{query_support, ImageData, ImageGroup, TerminalImage},
     Rgb,
 };
 
@@ -68,6 +68,11 @@ if query_support(&mut terminal, Duration::from_millis(500))? {
     let pixels = [[Rgb::new(255, 0, 0), Rgb::new(0, 0, 255)]];
     let mut image = TerminalImage::new(1, ImageData::from_rgb(pixels)?)?;
     image.upload_and_place(&mut terminal.stdout, 20, 10)?;
+
+    // Grouping is explicit: all queued image updates are presented together.
+    let mut group = ImageGroup::begin(&mut terminal.stdout)?;
+    image.replace_frame(&mut group, ImageData::from_rgb(pixels)?)?;
+    group.present()?;
 }
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```

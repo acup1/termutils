@@ -14,6 +14,8 @@ use std::{
 const MAX_ENCODED_CHUNK: usize = 4096;
 const SUPPORT_QUERY_ID: u32 = u32::MAX - 1;
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
+const BEGIN_SYNCHRONIZED_UPDATE: &[u8] = b"\x1b[?2026h";
+const END_SYNCHRONIZED_UPDATE: &[u8] = b"\x1b[?2026l";
 
 #[derive(Debug)]
 pub enum GraphicsError {
@@ -285,6 +287,57 @@ fn validate_rows<T>(rows: &[Vec<T>]) -> Result<usize, GraphicsError> {
         }
     }
     Ok(width)
+}
+
+/// Explicitly batches updates to multiple images into one synchronized render.
+///
+/// Terminals that support synchronized output keep displaying the previous frame
+/// until [`ImageGroup::present`] is called. Other terminals ignore the markers
+/// and render normally. Images are never added to a group automatically.
+#[must_use = "call present() to finish the synchronized image update"]
+pub struct ImageGroup<'writer, W: Write> {
+    writer: &'writer mut W,
+    active: bool,
+}
+
+impl<'writer, W: Write> ImageGroup<'writer, W> {
+    pub fn begin(writer: &'writer mut W) -> io::Result<Self> {
+        if let Err(error) = writer.write_all(BEGIN_SYNCHRONIZED_UPDATE) {
+            let _ = writer.write_all(END_SYNCHRONIZED_UPDATE);
+            let _ = writer.flush();
+            return Err(error);
+        }
+        Ok(Self {
+            writer,
+            active: true,
+        })
+    }
+
+    /// Presents all image commands written through this group as one frame.
+    pub fn present(mut self) -> io::Result<()> {
+        self.writer.write_all(END_SYNCHRONIZED_UPDATE)?;
+        self.active = false;
+        self.writer.flush()
+    }
+}
+
+impl<W: Write> Write for ImageGroup<'_, W> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.writer.write(buffer)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.writer.flush()
+    }
+}
+
+impl<W: Write> Drop for ImageGroup<'_, W> {
+    fn drop(&mut self) {
+        if self.active {
+            let _ = self.writer.write_all(END_SYNCHRONIZED_UPDATE);
+            let _ = self.writer.flush();
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -663,5 +716,60 @@ mod tests {
             SUPPORT_QUERY_ID
         ));
         assert!(contains_device_attributes_response(b"\x1b[?1;2c"));
+    }
+
+    #[test]
+    fn explicitly_groups_multiple_image_updates_into_one_render() {
+        #[derive(Default)]
+        struct RecordingWriter {
+            bytes: Vec<u8>,
+            writes: usize,
+            flushes: usize,
+        }
+
+        impl Write for RecordingWriter {
+            fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+                self.writes += 1;
+                self.bytes.extend_from_slice(buffer);
+                Ok(buffer.len())
+            }
+
+            fn flush(&mut self) -> io::Result<()> {
+                self.flushes += 1;
+                Ok(())
+            }
+        }
+
+        let data = ImageData::solid(1, 1, Rgba::WHITE).unwrap();
+        let mut first = TerminalImage::new(10, data.clone()).unwrap();
+        let mut second = TerminalImage::new(20, data).unwrap();
+        let mut output = RecordingWriter::default();
+
+        {
+            let mut group = ImageGroup::begin(&mut output).unwrap();
+            first.upload(&mut group).unwrap();
+            second.upload(&mut group).unwrap();
+            group.present().unwrap();
+        }
+
+        assert!(output.writes > 1);
+        assert_eq!(output.flushes, 1);
+        assert!(output.bytes.starts_with(BEGIN_SYNCHRONIZED_UPDATE));
+        assert!(output.bytes.ends_with(END_SYNCHRONIZED_UPDATE));
+        let output = String::from_utf8(output.bytes).unwrap();
+        assert!(output.contains("a=t,i=10"));
+        assert!(output.contains("a=t,i=20"));
+    }
+
+    #[test]
+    fn dropping_a_group_always_ends_synchronized_output() {
+        let mut output = Vec::new();
+        {
+            let _group = ImageGroup::begin(&mut output).unwrap();
+        }
+        assert_eq!(
+            output,
+            [BEGIN_SYNCHRONIZED_UPDATE, END_SYNCHRONIZED_UPDATE].concat()
+        );
     }
 }
