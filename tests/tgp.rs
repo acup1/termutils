@@ -1,6 +1,6 @@
 use std::io;
 
-use termutils::{
+use terminalib::{
     terminal::{self, MouseEvent},
     tgp::ImgData,
 };

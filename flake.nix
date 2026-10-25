@@ -1,5 +1,5 @@
 {
-  description = "Rust development environment for termutils";
+  description = "Rust development environment for terminalib";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

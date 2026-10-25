@@ -1,11 +1,11 @@
-# termutils
+# terminalib
 
 A small Rust library for terminal raw mode, alternate-screen rendering, mouse
 input, drawing primitives, and layered virtual windows.
 
 ```rust,no_run
 use std::io;
-use termutils::{terminal::Terminal, WindowManager};
+use terminalib::{terminal::Terminal, WindowManager};
 
 fn main() -> io::Result<()> {
     let mut terminal = Terminal::wannajustwork()?;
@@ -17,7 +17,7 @@ fn main() -> io::Result<()> {
     window.y = 1;
     window.width = 20;
     window.height = 5;
-    window.name = Some("termutils".into());
+    window.name = Some("terminalib".into());
     window.posprint(1, 1, "press q to quit");
 
     loop {
@@ -54,7 +54,7 @@ can assign the resulting rectangles directly to windows. Percentages must total
 100. Margins and gaps are removed before the remaining space is divided.
 
 ```rust,no_run
-use termutils::{Layout, Rect, WindowManager};
+use terminalib::{Layout, Rect, WindowManager};
 
 let mut windows = WindowManager::new();
 let sidebar = windows.new_window(0);
@@ -66,5 +66,5 @@ let regions = columns.apply(screen, &mut windows, &[sidebar, content])?;
 
 // Layouts can be nested by splitting one of the returned regions again.
 let content_rows = Layout::vertical([20, 80]).split(regions[1])?;
-# Ok::<(), termutils::LayoutError>(())
+# Ok::<(), terminalib::LayoutError>(())
 ```

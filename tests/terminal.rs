@@ -1,6 +1,6 @@
 use std::io;
 
-use termutils::{
+use terminalib::{
     color::Color,
     terminal::{self, MouseEvent},
 };

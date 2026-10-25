@@ -50,7 +50,7 @@ pub enum LayoutDirection {
 /// # Examples
 ///
 /// ```
-/// use termutils::{Layout, Rect, WindowManager};
+/// use terminalib::{Layout, Rect, WindowManager};
 ///
 /// let mut windows = WindowManager::new();
 /// let sidebar = windows.new_window(0);
@@ -62,7 +62,7 @@ pub enum LayoutDirection {
 ///     .apply(screen, &mut windows, &[sidebar, content])?;
 /// let content_rows = Layout::vertical([20, 80]).split(regions[1])?;
 ///
-/// # Ok::<(), termutils::LayoutError>(())
+/// # Ok::<(), terminalib::LayoutError>(())
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Layout {

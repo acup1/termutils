@@ -1,4 +1,4 @@
-use termutils::color;
+use terminalib::color;
 
 #[test]
 fn color_test() {
